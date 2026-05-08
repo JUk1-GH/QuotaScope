@@ -414,9 +414,9 @@ def main() -> None:
     payload = build_payload(Path(args.root).expanduser(), args.days, args.trend_minutes)
     out = Path(args.out)
     out.write_text(
-        "window.QUOTASCOPE_DATA = "
+        "window.CODEXSCOPE_DATA = "
         + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        + ";\n",
+        + ";\nwindow.QUOTASCOPE_DATA = window.CODEXSCOPE_DATA;\n",
         encoding="utf-8",
     )
     print(f"wrote {out} ({payload['summary']['requestsLabel']} requests, {payload['summary']['totalTokensLabel']} tokens)")

@@ -3491,7 +3491,7 @@
   <script src="./data.js"></script>
   <script>
     (() => {
-      const data = window.QUOTASCOPE_DATA;
+      const data = window.CODEXSCOPE_DATA || window.QUOTASCOPE_DATA || window.CODEXSCOPE_SAMPLE_DATA;
       if (!data) return;
       const uiState = {
         sessionsExpanded: false,
@@ -4334,7 +4334,6 @@
         });
       });
       applyRange("today");
-      refreshExchangeRate();
 
       $("toggleSessions")?.addEventListener("click", () => {
         uiState.sessionsExpanded = !uiState.sessionsExpanded;
