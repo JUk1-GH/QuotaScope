@@ -1,5 +1,7 @@
 # CodexScope
 
+English | [简体中文](README.zh-CN.md)
+
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003?style=flat-square)](https://linux.do)
 
 CodexScope is a local-first dashboard for inspecting Codex usage from local session logs. It turns local Codex metadata into a clean desktop dashboard with token trends, quota and risk status, session rankings, model rankings, request distribution, cache hit rate, and estimated cost.
