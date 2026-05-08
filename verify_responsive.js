@@ -115,6 +115,11 @@ function isVisibleInViewport(rect, height) {
             .map((el) => el.textContent.trim())
             .filter(Boolean).length,
         },
+        costState: {
+          hasUsdDefault: document.querySelector(".currency-mode[data-currency='USD']")?.classList.contains("active")
+            && (document.querySelector(".cost-total")?.textContent || "").includes("$"),
+          hasCnyToggle: !!document.querySelector(".currency-mode[data-currency='CNY']"),
+        },
         trendPaths: Array.from(document.querySelectorAll("#trendChart path[data-series]"))
           .map((path) => {
             const nums = (path.getAttribute("d")?.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
@@ -156,6 +161,12 @@ function isVisibleInViewport(rect, height) {
       tokenModeButton?.click();
       const tokenModeSummary = document.querySelector("#rangeSummary")?.textContent?.trim() || "";
       const tokenModeBars = count("#distributionChart .dist-bar-fill.token");
+      const cnyButton = document.querySelector('.currency-mode[data-currency="CNY"]');
+      cnyButton?.click();
+      const cnySwitches = !cnyButton || (cnyButton.classList.contains("active") && (document.querySelector(".cost-total")?.textContent || "").includes("¥"));
+      const usdButton = document.querySelector('.currency-mode[data-currency="USD"]');
+      usdButton?.click();
+      const usdSwitches = !usdButton || (usdButton.classList.contains("active") && (document.querySelector(".cost-total")?.textContent || "").includes("$"));
       const inputLegend = document.querySelector('.legend-item[data-series="input"]');
       const ensureActive = (button) => {
         if (button && button.getAttribute("aria-pressed") !== "true") button.click();
@@ -204,6 +215,8 @@ function isVisibleInViewport(rect, height) {
         dateSevenActivates: sevenActivated,
         distributionRendersAfterDateChange: distributionAfterSeven > 0,
         distributionModeSwitches: !tokenModeButton || (tokenModeButton.classList.contains("active") && tokenModeSummary.includes("Token") && tokenModeBars > 0),
+        currencyCnySwitches: cnySwitches,
+        currencyUsdSwitches: usdSwitches,
         defaultLinearScale,
         trendMultiSeries,
         trendModeControlsRemoved,
@@ -227,6 +240,8 @@ function isVisibleInViewport(rect, height) {
     if (report.trendPaths.some((path) => path.maxY !== null && path.maxY > 194.5)) issues.push("trend curve renders below zero axis");
     if (!report.distributionState.bars && !report.distributionState.empty) issues.push("distribution chart renders no state");
     if (report.distributionState.bars && report.distributionState.values < report.distributionState.bars) issues.push("distribution bars missing numeric values");
+    if (!report.costState.hasUsdDefault) issues.push("cost card does not default to USD");
+    if (!report.costState.hasCnyToggle) issues.push("cost card missing CNY toggle");
     if (!interactions.sessionsExpandable) issues.push("session expand control does not expand");
     if (!interactions.modelsExpandable) issues.push("model expand control does not expand");
     if (!interactions.tabActivates) issues.push("navigation tab does not activate");
@@ -234,6 +249,8 @@ function isVisibleInViewport(rect, height) {
     if (!interactions.dateSevenActivates) issues.push("7-day date filter does not activate");
     if (!interactions.distributionRendersAfterDateChange) issues.push("distribution chart does not rerender after date filter");
     if (!interactions.distributionModeSwitches) issues.push("distribution metric toggle does not switch to token mode");
+    if (!interactions.currencyCnySwitches) issues.push("cost currency toggle does not switch to CNY");
+    if (!interactions.currencyUsdSwitches) issues.push("cost currency toggle does not switch back to USD");
     if (!interactions.defaultLinearScale) issues.push("trend scale does not default to linear");
     if (!interactions.trendMultiSeries) issues.push("trend chart does not show multiple visible curves together");
     if (!interactions.trendModeControlsRemoved) issues.push("trend chart should be cumulative-only");

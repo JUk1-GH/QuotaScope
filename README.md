@@ -11,7 +11,7 @@ The dashboard is a static HTML app. Your real usage export stays local in `data.
 - Request and token distribution charts
 - Real Codex quota status from local `rate_limits` events when available
 - Session and model rankings
-- Estimated cost by model and token type, based on local token usage and public pricing
+- Estimated cost by model and token type, shown in USD by default with an optional CNY conversion
 - Local-only data generation from `~/.codex/sessions`
 
 ## Quick Start
@@ -47,7 +47,9 @@ The generator writes `data.js` next to `index.html`. That file may contain priva
 
 ## Cost Estimates
 
-The cost card is an estimate, not an official bill. It uses local token counts, a small built-in pricing table, and a fixed USD-to-CNY conversion for display. Actual billing and subscription quota status should always be checked with the official account or billing page.
+The cost card is an estimate, not an official bill. It uses local token counts and a built-in table based on OpenAI's published USD model prices. Actual ChatGPT/Codex billing, credits, and subscription quota status should always be checked with the official account or billing page.
+
+USD is the source currency. The CNY view is only a display conversion. When available, QuotaScope fetches the USD/CNY rate from the Frankfurter API with the ECB provider selected. If that request fails, it falls back to the last bundled reference rate and marks the conversion as offline fallback in the UI.
 
 ## Verify Layout
 

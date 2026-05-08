@@ -1185,6 +1185,14 @@
       align-items: center;
     }
 
+    .cost-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+      min-width: 0;
+    }
+
     .cost-source {
       display: inline-flex;
       align-items: center;
@@ -1206,6 +1214,38 @@
       font-size: 11px;
       font-family: var(--mono);
       line-height: 1;
+    }
+
+    .currency-toggle {
+      height: 26px;
+      display: inline-flex;
+      flex: none;
+      overflow: hidden;
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .currency-mode {
+      appearance: none;
+      min-width: 42px;
+      border: 0;
+      border-left: 1px solid #dbe7f5;
+      background: transparent;
+      color: #314863;
+      padding: 0 9px;
+      font-size: 11px;
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    .currency-mode:first-child {
+      border-left: 0;
+    }
+
+    .currency-mode.active {
+      background: var(--blue);
+      color: #fff;
     }
 
     .cost-content {
@@ -1604,6 +1644,15 @@
 
       .quota-risk-list .warning {
         margin-top: 7px;
+      }
+
+      .cost-actions {
+        gap: 6px;
+      }
+
+      .currency-mode {
+        min-width: 38px;
+        padding: 0 7px;
       }
 
       .cost-content,
@@ -2727,6 +2776,15 @@
         font-size: 11px;
       }
 
+      .cost-actions {
+        gap: 6px;
+      }
+
+      .currency-mode {
+        min-width: 38px;
+        padding: 0 7px;
+      }
+
       .cost-content,
       .cost-bottom {
         grid-template-columns: 1fr;
@@ -3034,6 +3092,22 @@
 
       .risk-row .percent {
         display: none;
+      }
+
+      .cost-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 5px;
+      }
+
+      .currency-toggle {
+        height: 24px;
+      }
+
+      .currency-mode {
+        min-width: 36px;
+        padding: 0 6px;
+        font-size: 10px;
       }
 
       .cost-content,
@@ -3397,7 +3471,13 @@
           <article id="costPanel" class="panel cost-panel">
             <div class="panel-title cost-title">
               <h3>费用统计</h3>
-              <span class="cost-source">按官方价格估算 <span aria-hidden="true">i</span></span>
+              <div class="cost-actions">
+                <span class="cost-source">官方美元价 <span aria-hidden="true">i</span></span>
+                <div class="currency-toggle" role="group" aria-label="费用币种">
+                  <button class="currency-mode active" type="button" data-currency="USD">USD</button>
+                  <button class="currency-mode" type="button" data-currency="CNY">CNY</button>
+                </div>
+              </div>
             </div>
             <div id="costContent" class="cost-content">
               <div class="list-empty">等待本地 token 用量</div>
@@ -3417,6 +3497,7 @@
         sessionsExpanded: false,
         modelsExpanded: false,
         distributionMode: "calls",
+        currency: "USD",
         trendScale: "linear",
         trendSeries: {
           total: true,
@@ -3456,6 +3537,13 @@
       let costModelRows = [];
       let riskRows = data.risk || [];
       let costSummary = {};
+      const fxState = {
+        usdCny: 6.8012,
+        date: "2026-05-08",
+        source: "ECB 参考汇率",
+        status: "fallback",
+      };
+      const EXCHANGE_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
       const latestDataTime = Math.max(
         Number((data.availableRange || {}).end) || 0,
         ...records.map((record) => Number(record[0]) || 0),
@@ -3494,18 +3582,30 @@
         if (Math.abs(value) >= 1e3) return `${Math.round(value / 1e3)}K`;
         return `${Math.round(value)}`;
       };
+      const convertCost = (value) => {
+        const amount = Number(value) || 0;
+        return uiState.currency === "CNY" ? amount * fxState.usdCny : amount;
+      };
       const money = (value) => {
-        value = Number(value) || 0;
-        if (Math.abs(value) >= 1000) return `¥${Math.round(value).toLocaleString()}`;
-        return `¥${value.toFixed(2)}`;
+        const amount = convertCost(value);
+        if (uiState.currency === "CNY") {
+          if (Math.abs(amount) >= 1000) return `¥${Math.round(amount).toLocaleString()}`;
+          return `¥${amount.toFixed(2)}`;
+        }
+        if (Math.abs(amount) >= 1000) return `$${Math.round(amount).toLocaleString()}`;
+        return `$${amount.toFixed(2)}`;
       };
       const moneyCompact = (value) => {
-        value = Number(value) || 0;
-        if (Math.abs(value) >= 1000) return `¥${Math.round(value).toLocaleString()}`;
-        if (Math.abs(value) >= 100) return `¥${value.toFixed(0)}`;
-        return `¥${value.toFixed(2)}`;
+        const amount = convertCost(value);
+        if (uiState.currency === "CNY") {
+          if (Math.abs(amount) >= 1000) return `¥${Math.round(amount).toLocaleString()}`;
+          if (Math.abs(amount) >= 100) return `¥${amount.toFixed(0)}`;
+          return `¥${amount.toFixed(2)}`;
+        }
+        if (Math.abs(amount) >= 1000) return `$${Math.round(amount).toLocaleString()}`;
+        if (Math.abs(amount) >= 100) return `$${amount.toFixed(0)}`;
+        return `$${amount.toFixed(2)}`;
       };
-      const CNY_PER_USD = 7.2;
       const MODEL_PRICING_USD_PER_M = [
         { test: /gpt-5\.5/i, input: 5.00, cached: 0.50, output: 30.00 },
         { test: /gpt-5\.4[-_ ]?mini/i, input: 0.75, cached: 0.075, output: 4.50 },
@@ -3542,7 +3642,7 @@
         if (!pricing) {
           return { ...emptyCost(), unpricedTokens: pricedTokens };
         }
-        const multiplier = CNY_PER_USD / 1_000_000;
+        const multiplier = 1 / 1_000_000;
         const input = billableInput * pricing.input * multiplier;
         const cached = cachedTokens * pricing.cached * multiplier;
         const output = visibleOutput * pricing.output * multiplier;
@@ -3652,7 +3752,6 @@
         ].map((part) => ({
           ...part,
           percent: costs.total ? part.value / costs.total * 100 : 0,
-          valueLabel: money(part.value),
         }));
         return {
           label: range.label,
@@ -3672,8 +3771,7 @@
           },
           cost: {
             total: costs.total,
-            totalLabel: money(costs.total),
-            averageLabel: money(totals.requests ? costs.total / totals.requests : 0),
+            average: totals.requests ? costs.total / totals.requests : 0,
             rangeTokensLabel: fmt(totals.total),
             parts: costParts,
             unpricedTokens: costs.unpricedTokens,
@@ -3694,14 +3792,12 @@
             latency: row.latencyCount ? row.latencyTotal / row.latencyCount / 1000 : 0,
             latencyLabel: row.latencyCount ? `${(row.latencyTotal / row.latencyCount / 1000).toFixed(2)}s` : "--",
             cost: row.cost || 0,
-            costLabel: money(row.cost || 0),
             percent: Math.round(row.tokens / maxModelTokens * 100),
           })),
           costModels: costModels.map((row, index) => ({
             name: row.name,
             rank: index + 1,
             cost: row.cost || 0,
-            costLabel: moneyCompact(row.cost || 0),
             percent: Math.round((row.cost || 0) / maxModelCost * 100),
           })),
           risk: [
@@ -3976,7 +4072,7 @@
             <span class="name">${esc(row.name)}</span>
             <span class="bar"><span class="${colors[index] || ""}" style="width:${Math.max(4, row.percent || 0)}%"></span></span>
             <span class="tokens">${esc(row.tokensLabel)}</span>
-            <span class="model-cost">${esc(row.costLabel || "--")}</span>
+            <span class="model-cost">${esc(money(row.cost || 0))}</span>
           </div>`).join("");
         const toggle = $("toggleModels");
         if (toggle) {
@@ -4063,6 +4159,11 @@
       const renderCost = () => {
         const content = $("costContent");
         if (!content) return;
+        document.querySelectorAll(".currency-mode").forEach((button) => {
+          const active = button.dataset.currency === uiState.currency;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
         const cost = costSummary || {};
         const parts = cost.parts || [];
         const rows = distributionRows || [];
@@ -4075,7 +4176,7 @@
         const partMarkup = parts.map((part) => `
           <div class="cost-part">
             <div class="cost-name"><i class="${esc(part.className)}"></i>${esc(part.name)}</div>
-            <div class="cost-value">${esc(part.valueLabel)}</div>
+            <div class="cost-value">${esc(money(part.value))}</div>
             <span class="cost-percent">${(part.percent || 0).toFixed(1)}%</span>
           </div>`).join("");
         const stackMarkup = parts.map((part) => {
@@ -4086,7 +4187,7 @@
           <div class="cost-model-row">
             <span class="model-name">${esc(row.name)}</span>
             <span class="bar"><span style="width:${Math.max(4, row.percent || 0)}%"></span></span>
-            <span>${esc(row.costLabel)}</span>
+            <span>${esc(moneyCompact(row.cost || 0))}</span>
           </div>`).join("") || `<div class="list-empty">当前范围没有匹配价格的模型</div>`;
         const costBuckets = rows.map((row, index) => ({
           label: row.label,
@@ -4101,12 +4202,15 @@
         }).join("");
         const firstLabel = costBuckets[0]?.label || "--";
         const lastLabel = costBuckets[costBuckets.length - 1]?.label || "--";
+        const fxNote = uiState.currency === "CNY"
+          ? `${fxState.source} ${fxState.date}，1 USD≈${fxState.usdCny.toFixed(4)} CNY${fxState.status === "fallback" ? "（离线兜底）" : ""}`
+          : "当前显示 USD；切换 CNY 时按 ECB 参考汇率换算。";
         content.innerHTML = `
           <div class="cost-summary">
-            <div class="cost-kicker">预估费用</div>
-            <div class="cost-total">${esc(cost.totalLabel || "¥0.00")}</div>
+            <div class="cost-kicker">${uiState.currency === "USD" ? "美元估算" : "人民币换算"}</div>
+            <div class="cost-total">${esc(money(cost.total || 0))}</div>
             <div class="cost-stats">
-              <div class="cost-stat"><span>平均</span><b>${esc(cost.averageLabel || "¥0.00")} / 调用</b></div>
+              <div class="cost-stat"><span>平均</span><b>${esc(money(cost.average || 0))} / 调用</b></div>
               <div class="cost-stat"><span>本区间</span><b>${esc(cost.rangeTokensLabel || "--")}</b></div>
             </div>
           </div>
@@ -4131,7 +4235,7 @@
               <path d="M12 3.2 19 6.5v5.2c0 4.4-2.8 7.3-7 9.1-4.2-1.8-7-4.7-7-9.1V6.5l7-3.3Z" fill="#eaf3ff" stroke="currentColor" stroke-width="1.8"/>
               <path d="m8.8 12.1 2.1 2.1 4.4-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>仅基于本地 token 用量与公开价格估算，实际账单以官方为准。</span>
+            <span>按 OpenAI 官方美元价和本地 token 估算；ChatGPT/Codex 实际账单与额度以官方为准。${esc(fxNote)}</span>
           </div>`;
       };
 
@@ -4149,6 +4253,23 @@
         renderModels();
         renderRisk();
         renderCost();
+      };
+
+      const refreshExchangeRate = async () => {
+        try {
+          const response = await fetch(EXCHANGE_RATE_URL, { cache: "no-store" });
+          if (!response.ok) throw new Error(`fx ${response.status}`);
+          const payload = await response.json();
+          const rate = Number(payload.rate);
+          if (!Number.isFinite(rate) || rate <= 0) throw new Error("fx invalid");
+          fxState.usdCny = rate;
+          fxState.date = payload.date || "latest";
+          fxState.status = "live";
+          renderCost();
+        } catch {
+          fxState.status = "fallback";
+          renderCost();
+        }
       };
 
       const applyRange = (preset) => {
@@ -4200,7 +4321,16 @@
           renderDistribution();
         });
       });
+      document.querySelectorAll(".currency-mode").forEach((button) => {
+        button.addEventListener("click", () => {
+          uiState.currency = button.dataset.currency === "CNY" ? "CNY" : "USD";
+          renderModels();
+          renderCost();
+          if (uiState.currency === "CNY" && fxState.status === "fallback") refreshExchangeRate();
+        });
+      });
       applyRange("today");
+      refreshExchangeRate();
 
       $("toggleSessions")?.addEventListener("click", () => {
         uiState.sessionsExpanded = !uiState.sessionsExpanded;
