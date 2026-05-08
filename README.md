@@ -1,0 +1,56 @@
+# QuotaScope
+
+QuotaScope is a local-first dashboard for inspecting Codex usage from local session logs. It shows token trends, quota status, session rankings, model rankings, request distribution, cache hit rate, and rate-limit risk.
+
+The dashboard is a static HTML app. Your real usage export stays local in `data.js`, which is intentionally ignored by git.
+
+## Features
+
+- Token usage trend with absolute and logarithmic scales
+- Hourly/cumulative trend modes
+- Date filters: last 24 hours, today, last 7 days, last 30 days, custom range
+- Request and token distribution charts
+- Real Codex quota status from local `rate_limits` events when available
+- Session and model rankings
+- Local-only data generation from `~/.codex/sessions`
+
+## Quick Start
+
+Open `index.html` directly in a browser to view the bundled sample data.
+
+To view your own local Codex usage:
+
+```bash
+python3 generate_codex_data.py
+open index.html
+```
+
+The generator writes `data.js` next to `index.html`. That file may contain private project names, session ids, timestamps, usage patterns, and quota status, so it is excluded by `.gitignore`.
+
+## Verify Layout
+
+The responsive visual audit uses Playwright:
+
+```bash
+npm install
+npm run verify
+```
+
+## Privacy
+
+QuotaScope does not send data to a server. `generate_codex_data.py` reads local Codex session logs and exports only usage metadata:
+
+- session id and working-directory basename
+- model name
+- token counts
+- rate limit metadata
+- task duration, first-token latency, failures
+
+It does not export prompt text, assistant messages, tool output, or file contents.
+
+Review `data.js` before sharing screenshots or artifacts generated from your own usage.
+
+## License
+
+MIT
+

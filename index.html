@@ -1,0 +1,3495 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuotaScope</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f9ff;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-solid: #ffffff;
+      --line: #d9e4f3;
+      --line-soft: #e9f0fa;
+      --text: #11223d;
+      --muted: #64748b;
+      --muted-2: #8aa0bb;
+      --blue: #1668f2;
+      --blue-2: #3b82f6;
+      --blue-soft: #e8f1ff;
+      --teal: #13aaa0;
+      --teal-soft: #e6fbf8;
+      --sky: #8fc2ff;
+      --violet: #8b5cf6;
+      --amber: #f59e0b;
+      --amber-soft: #fff7e8;
+      --green: #1db954;
+      --red: #ef233c;
+      --shadow: 0 14px 34px rgba(54, 103, 163, 0.09);
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(230, 241, 255, 0.78), rgba(246, 250, 255, 0.92) 24%, #f7fbff 100%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    body {
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .topbar {
+      height: 60px;
+      display: grid;
+      grid-template-columns: 178px 1fr auto;
+      align-items: center;
+      gap: 22px;
+      padding: 0 28px;
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 2px 12px rgba(96, 137, 187, 0.06);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #0b66ff, #2f8dff);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(22, 104, 242, 0.22);
+    }
+
+    .brand-mark svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .tabs {
+      height: 100%;
+      display: flex;
+      align-items: stretch;
+      gap: 28px;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar,
+    .actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      color: #263a58;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: var(--blue);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .segmented {
+      height: 34px;
+      display: grid;
+      grid-template-columns: repeat(4, 78px);
+      border: 1px solid #c9d7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .segmented.codex-only {
+      grid-template-columns: 112px 96px 122px;
+    }
+
+    .segmented span {
+      display: grid;
+      place-items: center;
+      border-left: 1px solid #d9e4f3;
+      color: #253a5b;
+      font-size: 13px;
+    }
+
+    .segmented span:first-child {
+      border-left: 0;
+    }
+
+    .segmented .selected {
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .sources {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      min-width: 0;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid #d5e1f1;
+      border-radius: 9px;
+      background: #f8fbff;
+    }
+
+    .source-chip {
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #536985;
+      font-size: 12px;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .source-chip::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #9fb5d0;
+    }
+
+    .source-chip.primary {
+      background: transparent;
+      border-color: transparent;
+      color: var(--blue);
+    }
+
+    .source-chip.primary::before {
+      background: var(--blue);
+    }
+
+    .range {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      border: 1px solid #cfdbea;
+      border-radius: 8px;
+      background: #fff;
+      color: #324563;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .range strong {
+      color: #203753;
+      font-weight: 750;
+    }
+
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .period-btn {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      background: #fff;
+      color: #314863;
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .period-btn.active {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .custom-range {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .custom-range[hidden] {
+      display: none;
+    }
+
+    .custom-range input {
+      width: 132px;
+      height: 34px;
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      padding: 0 8px;
+      background: #fff;
+      color: #314863;
+      font-size: 12px;
+    }
+
+    .sync {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #6c7f98;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .sync svg {
+      color: #15b978;
+    }
+
+    main {
+      flex: 1;
+      padding: 14px 22px 6px;
+    }
+
+    .grid {
+      max-width: 1554px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.36fr 0.64fr;
+      grid-auto-rows: auto;
+      gap: 16px;
+    }
+
+    .grid > *,
+    .lower > *,
+    .metrics > * {
+      min-width: 0;
+    }
+
+    .panel,
+    .metric,
+    .coverage {
+      position: relative;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+        var(--panel-solid);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 16px 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title h2,
+    .panel-title h3 {
+      margin: 0;
+      color: #10223e;
+      font-size: 17px;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .panel-title h3 {
+      font-size: 16px;
+    }
+
+    .hint {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      margin-left: 4px;
+      border: 1px solid #9fb0c7;
+      border-radius: 50%;
+      color: #7b8da8;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .forecast {
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .legend {
+      display: flex;
+      gap: 28px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 0 0 8px;
+      color: #32445e;
+      font-size: 13px;
+    }
+
+    .legend-item {
+      appearance: none;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .legend-item.off {
+      color: #7a8ba2;
+    }
+
+    .chart-actions {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .trend-heading {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .trend-toggle {
+      height: 30px;
+      width: 112px;
+      display: inline-flex;
+      flex: none;
+      overflow: hidden;
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .trend-mode,
+    .trend-scale {
+      appearance: none;
+      flex: 0 0 55px;
+      width: 55px;
+      border: 0;
+      border-left: 1px solid #dbe7f5;
+      background: transparent;
+      color: #314863;
+      font-size: 12px;
+      font-weight: 740;
+      cursor: pointer;
+    }
+
+    .trend-mode:first-child,
+    .trend-scale:first-child {
+      border-left: 0;
+    }
+
+    .trend-mode.active,
+    .trend-scale.active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .trend-heading .forecast {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .check {
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 4px;
+      border: 1px solid #b9c8dc;
+      background: #fff;
+      color: #fff;
+    }
+
+    .check.on {
+      border-color: transparent;
+      background: var(--blue);
+    }
+
+    .check.teal {
+      background: var(--teal);
+    }
+
+    .check.sky {
+      background: var(--sky);
+    }
+
+    .check.violet {
+      background: var(--violet);
+    }
+
+    .check svg {
+      width: 11px;
+      height: 11px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 214px;
+      overflow: hidden;
+    }
+
+    .chart-wrap svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-label {
+      fill: #465a78;
+      font-size: 12px;
+    }
+
+    .grid-line {
+      stroke: #dce6f3;
+      stroke-dasharray: 4 4;
+      stroke-width: 1;
+    }
+
+    .axis-line {
+      stroke: #d4deeb;
+      stroke-width: 1;
+    }
+
+    .tooltip-box {
+      fill: rgba(255, 255, 255, 0.96);
+      stroke: #aebdd1;
+      filter: drop-shadow(0 8px 16px rgba(36, 73, 124, 0.13));
+    }
+
+    .quota {
+      min-height: 210px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .badge {
+      padding: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #6b7f99;
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
+
+    .ringbox {
+      position: relative;
+      height: 210px;
+      display: grid;
+      place-items: center;
+    }
+
+    .ringbox > svg {
+      width: 210px;
+      height: 210px;
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: #edf3fb;
+      stroke-width: 10;
+    }
+
+    .ring-main,
+    .ring-teal,
+    .ring-sky {
+      fill: none;
+      stroke-linecap: round;
+      stroke-width: 10;
+    }
+
+    .ring-main {
+      stroke: var(--blue);
+      stroke-dasharray: 0 486;
+    }
+
+    .ring-teal {
+      stroke: var(--teal);
+      stroke-dasharray: 0 421;
+    }
+
+    .ring-sky {
+      stroke: #98c8ff;
+      display: none;
+      stroke-dasharray: 0 358;
+    }
+
+    .shield {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      gap: 6px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .shield svg {
+      width: 42px;
+      height: 42px;
+      transform: none;
+    }
+
+    .quota-values {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .quota-row {
+      display: grid;
+      grid-template-columns: 86px 1fr 58px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .quota-name {
+      color: #16243e;
+      font-size: 14px;
+      font-weight: 730;
+    }
+
+    .quota-value {
+      color: var(--blue);
+      text-align: right;
+      font-size: 20px;
+      font-weight: 820;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .quota-row:nth-child(2) .quota-value {
+      color: var(--teal);
+    }
+
+    .track {
+      height: 6px;
+      border-radius: 999px;
+      background: #e9eff7;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+    }
+
+    .fill.teal {
+      background: var(--teal);
+    }
+
+    .quota-note {
+      grid-column: 2 / -1;
+      margin-top: -7px;
+      color: #6c7f98;
+      font-size: 12px;
+    }
+
+    .metrics {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.35fr 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .metric {
+      height: 136px;
+      padding: 16px 18px 14px;
+      overflow: hidden;
+    }
+
+    .metric-primary {
+      border-color: #9fcaff;
+      background:
+        linear-gradient(180deg, rgba(235, 246, 255, 0.98), rgba(255, 255, 255, 0.92)),
+        var(--panel-solid);
+      box-shadow:
+        0 16px 34px rgba(22, 104, 242, 0.13),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    .metric-primary::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--blue), var(--teal), var(--sky));
+    }
+
+    .metric h3 {
+      margin: 0 0 5px;
+      color: #253c5c;
+      font-size: 14px;
+      font-weight: 740;
+    }
+
+    .metric-primary h3 {
+      color: #174b89;
+      font-weight: 800;
+    }
+
+    .metric-value {
+      color: #0e1d35;
+      font-size: 32px;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+    }
+
+    .metric-primary .metric-value {
+      color: #0b376f;
+      font-size: 36px;
+      letter-spacing: 0;
+    }
+
+    .metric-unit {
+      margin-left: 5px;
+      color: #52677f;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .splitbar {
+      display: grid;
+      grid-template-columns: 2.31fr 0.98fr 0.41fr 0.12fr;
+      gap: 2px;
+      height: 8px;
+      margin: 12px 0 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #ecf3fd;
+    }
+
+    .metric-primary .splitbar {
+      height: 10px;
+      margin-top: 11px;
+      box-shadow: inset 0 0 0 1px rgba(22, 104, 242, 0.08);
+    }
+
+    .splitbar span:nth-child(1) { background: var(--blue); }
+    .splitbar span:nth-child(2) { background: var(--teal); }
+    .splitbar span:nth-child(3) { background: var(--sky); }
+    .splitbar span:nth-child(4) { background: var(--violet); }
+
+    .split-legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      color: #536985;
+      font-size: 12px;
+    }
+
+    .split-legend b {
+      display: block;
+      margin-top: 4px;
+      color: #1a2d49;
+      font-size: 12px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .dot.teal { background: var(--teal); }
+    .dot.sky { background: var(--sky); }
+    .dot.violet { background: var(--violet); }
+    .dot.green { background: var(--green); }
+
+    .metric-footer {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-top: 22px;
+      color: #4f6380;
+      font-size: 13px;
+      border-top: 1px solid var(--line-soft);
+      padding-top: 12px;
+    }
+
+    .metric-footer strong {
+      color: var(--teal);
+      font-size: 19px;
+      font-weight: 820;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-footer .fail {
+      color: var(--red);
+    }
+
+    .spark {
+      position: absolute;
+      right: 18px;
+      bottom: 25px;
+      width: 126px;
+      height: 42px;
+    }
+
+    .spark.small {
+      bottom: 17px;
+      height: 36px;
+    }
+
+    .metric .delta {
+      position: absolute;
+      top: 38px;
+      right: 18px;
+      color: var(--red);
+      font-size: 14px;
+      font-weight: 760;
+      text-align: right;
+    }
+
+    .metric .delta span {
+      display: block;
+      margin-top: 4px;
+      color: #8b9bb0;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .lower {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr 0.95fr;
+      gap: 16px;
+    }
+
+    .lower .panel {
+      padding-top: 14px;
+      padding-bottom: 12px;
+    }
+
+    .rank-list,
+    .model-list,
+    .risk-list {
+      display: grid;
+      gap: 0;
+    }
+
+    .session-head,
+    .session-row {
+      display: grid;
+      grid-template-columns: 1.42fr 0.92fr 1.08fr 0.72fr 0.5fr;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .session-head {
+      height: 24px;
+      color: #7c8ca3;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .session-row {
+      min-height: 28px;
+      border-bottom: 1px solid var(--line-soft);
+      color: #1b2d48;
+      font-size: 13px;
+    }
+
+    .session-row:last-child {
+      border-bottom: 0;
+    }
+
+    .rank-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 650;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .rank-text,
+    .model-row .name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .num {
+      width: 17px;
+      height: 17px;
+      display: inline-grid;
+      place-items: center;
+      flex: none;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 780;
+    }
+
+    .num.muted {
+      background: #e6eef8;
+      color: #5d6f88;
+    }
+
+    .pill {
+      width: max-content;
+      max-width: 100%;
+      padding: 3px 8px;
+      border: 1px solid #cfe0f6;
+      border-radius: 999px;
+      color: var(--blue);
+      background: #f7fbff;
+      font-size: 11px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mini-bar {
+      height: 6px;
+      border-radius: 99px;
+      background: #e7edf6;
+      overflow: hidden;
+    }
+
+    .mini-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+    }
+
+    .status {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      justify-self: center;
+    }
+
+    .link {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .link[hidden] {
+      display: none;
+    }
+
+    .model-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 72px 62px;
+      align-items: center;
+      gap: 16px;
+      min-height: 37px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 14px;
+    }
+
+    .model-row:last-child {
+      border-bottom: 0;
+    }
+
+    .model-row .name {
+      font-weight: 680;
+    }
+
+    .bar {
+      height: 12px;
+      border-radius: 999px;
+      background: #e9f0f8;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.28);
+    }
+
+    .bar span.teal { background: var(--teal); }
+    .bar span.sky { background: var(--sky); }
+    .bar span.violet { background: var(--violet); }
+
+    .model-row .tokens,
+    .model-row .latency {
+      color: #405772;
+      text-align: right;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .model-row .latency.slow {
+      color: var(--red);
+      font-weight: 720;
+    }
+
+    .risk-list {
+      gap: 8px;
+      padding: 2px 2px 0;
+    }
+
+    .risk-row {
+      display: grid;
+      grid-template-columns: 28px 44px 1fr 68px 42px;
+      align-items: center;
+      gap: 10px;
+      color: #314863;
+      font-size: 13px;
+    }
+
+    .risk-icon {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #bfd4f2;
+      border-radius: 5px;
+      color: var(--blue);
+    }
+
+    .risk-row .track {
+      height: 6px;
+    }
+
+    .risk-row .value,
+    .risk-row .percent {
+      color: #405772;
+      text-align: right;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .warning {
+      display: grid;
+      grid-template-columns: 36px 1fr 20px;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+      padding: 9px 12px;
+      border: 1px solid #f2c96a;
+      border-radius: 8px;
+      background: #fffaf0;
+      color: #2c3d56;
+      font-size: 13px;
+    }
+
+    .warning svg {
+      color: var(--amber);
+    }
+
+    .warning strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 14px;
+    }
+
+    .coverage {
+      grid-column: 1 / -1;
+      padding: 8px 16px 8px;
+    }
+
+    .coverage h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 210px repeat(5, 1fr);
+      color: #5f7189;
+      font-size: 11px;
+    }
+
+    .matrix.codex-matrix {
+      grid-template-columns: 190px 1fr 120px;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1350px) {
+      .topbar {
+        grid-template-columns: 154px minmax(220px, 1fr) auto;
+        gap: 12px;
+      }
+
+      .actions {
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .date-filter {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .tabs {
+        gap: 14px;
+      }
+
+      .tab {
+        font-size: 13px;
+      }
+
+      .sources {
+        height: 30px;
+        padding: 0 7px;
+      }
+
+      .source-chip {
+        padding: 0 5px;
+        font-size: 11px;
+      }
+
+      .quota {
+        grid-template-columns: 132px minmax(0, 1fr);
+        gap: 10px;
+      }
+
+      .ringbox {
+        height: 144px;
+      }
+
+      .ringbox > svg {
+        width: 144px;
+        height: 144px;
+      }
+
+      .quota-row {
+        grid-template-columns: 58px minmax(42px, 1fr) 44px;
+        gap: 6px;
+      }
+
+      .quota-name {
+        font-size: 12px;
+      }
+
+      .quota-value {
+        font-size: 16px;
+      }
+
+      .quota-note {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .metrics {
+        grid-template-columns: 1.25fr 1fr 1fr 1fr;
+      }
+
+      .metric {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .split-legend {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .matrix > div {
+      min-height: 13px;
+      display: flex;
+      align-items: center;
+      border-left: 1px solid var(--line-soft);
+      padding: 0 12px;
+    }
+
+    .matrix > div:nth-child(6n + 1) {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .matrix.codex-matrix > div:nth-child(6n + 1) {
+      border-left: 1px solid var(--line-soft);
+      padding-left: 12px;
+    }
+
+    .matrix.codex-matrix > div:nth-child(3n + 1) {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .matrix .head {
+      color: #52677f;
+      justify-content: center;
+      font-weight: 650;
+    }
+
+    .matrix .ok,
+    .matrix .partial,
+    .matrix .dash {
+      justify-content: center;
+      font-family: var(--mono);
+      font-weight: 850;
+    }
+
+    .matrix .ok { color: var(--blue); }
+    .matrix .partial { color: var(--amber); }
+    .matrix .dash { color: #94a3b8; }
+
+    .distribution-panel {
+      padding-bottom: 12px;
+    }
+
+    .distribution-title {
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dist-heading {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .dist-toolbar {
+      flex: none;
+      margin-left: auto;
+    }
+
+    .dist-toggle {
+      height: 28px;
+      display: inline-flex;
+      width: 98px;
+      overflow: hidden;
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .dist-mode {
+      appearance: none;
+      width: 48px;
+      flex: 0 0 48px;
+      border: 0;
+      border-left: 1px solid #dbe7f5;
+      background: transparent;
+      color: #314863;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 740;
+      cursor: pointer;
+    }
+
+    .dist-mode:first-child {
+      border-left: 0;
+    }
+
+    .dist-mode.active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .distribution-chart {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) 20px;
+      gap: 4px 8px;
+      min-height: 144px;
+      padding-top: 4px;
+    }
+
+    .dist-empty {
+      grid-column: 1 / -1;
+      grid-row: 1 / -1;
+      align-self: center;
+      justify-self: center;
+      color: #6c7f98;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .dist-y-axis {
+      grid-column: 1;
+      grid-row: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto 1fr auto;
+      align-items: center;
+      color: #6f8198;
+      font-size: 9px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      padding-top: 17px;
+      padding-bottom: 2px;
+    }
+
+    .dist-plot {
+      grid-column: 2;
+      grid-row: 1;
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--bar-count, 12), minmax(12px, 1fr));
+      align-items: end;
+      gap: 6px;
+      min-width: 0;
+      border-left: 1px solid #d7e3f2;
+      border-bottom: 1px solid #d7e3f2;
+      background:
+        linear-gradient(to bottom, #dfe8f5 0 1px, transparent 1px) 0 17px / 100% calc((100% - 17px) / 2) repeat-y;
+      padding: 0 0 2px 6px;
+    }
+
+    .dist-axis-spacer {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .dist-x-axis {
+      grid-column: 2;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: repeat(var(--bar-count, 12), minmax(12px, 1fr));
+      gap: 6px;
+      padding-left: 6px;
+      color: #6f8198;
+      font-size: 9px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .dist-x-label {
+      min-width: 0;
+      overflow: visible;
+      white-space: nowrap;
+    }
+
+    .list-empty {
+      color: #6c7f98;
+      font-size: 13px;
+      font-weight: 650;
+      padding: 14px 0;
+    }
+
+    .dist-bar {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 7px;
+      height: 100%;
+    }
+
+    .dist-bar-value {
+      min-width: 0;
+      color: #172b49;
+      font-size: 11px;
+      font-weight: 780;
+      line-height: 1;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: visible;
+    }
+
+    .dist-bar-fill {
+      align-self: end;
+      width: 100%;
+      min-height: 0;
+      border-radius: 5px 5px 2px 2px;
+      background: linear-gradient(180deg, #1668f2, #8fc2ff);
+    }
+
+    .dist-bar-fill.token {
+      background: linear-gradient(180deg, #13aaa0, #8ee5df);
+    }
+
+    .dist-bar-label {
+      color: #6c7f98;
+      font-size: 10px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (min-width: 1181px) {
+      .grid {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        align-items: stretch;
+      }
+
+      #tokenPanel {
+        grid-column: 1 / span 8;
+      }
+
+      #quotaPanel {
+        grid-column: 9 / -1;
+      }
+
+      .metrics {
+        grid-column: 1 / span 8;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .split-legend {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric {
+        height: auto;
+        min-height: 136px;
+      }
+
+      #distributionPanel {
+        grid-column: 9 / -1;
+        padding: 15px 16px 14px;
+      }
+
+      #distributionPanel .panel-title {
+        margin-bottom: 8px;
+      }
+
+      #distributionPanel .forecast {
+        font-size: 12px;
+      }
+
+      #distributionPanel .dist-mode {
+        padding: 0 8px;
+        font-size: 11px;
+      }
+
+      .distribution-chart {
+        min-height: 136px;
+        gap: 4px 7px;
+      }
+
+      .dist-bar {
+        grid-template-rows: auto 1fr;
+        gap: 8px;
+      }
+
+      .dist-plot,
+      .dist-x-axis {
+        gap: 5px;
+      }
+
+      #distributionPanel .dist-bar-value {
+        font-size: 8px;
+      }
+
+      #distributionPanel .dist-bar-label {
+        display: none;
+      }
+
+      .lower {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (min-width: 1181px) and (max-width: 1320px) {
+      .grid {
+        gap: 12px;
+      }
+
+      .panel {
+        padding: 14px 16px;
+      }
+
+      .chart-wrap {
+        height: 196px;
+      }
+
+      .metric {
+        min-height: 128px;
+        padding: 14px 14px 12px;
+      }
+
+      .metric-value {
+        font-size: 29px;
+      }
+
+      .metric-unit {
+        font-size: 10px;
+      }
+
+      .split-legend {
+        gap: 5px 8px;
+        font-size: 11px;
+      }
+
+      .split-legend b {
+        font-size: 11px;
+      }
+
+      .metric-footer {
+        margin-top: 14px;
+        padding-top: 8px;
+        font-size: 11px;
+      }
+
+      .metric-footer strong {
+        font-size: 16px;
+      }
+
+      .spark {
+        right: 10px;
+        bottom: 16px;
+        width: 84px;
+        height: 34px;
+      }
+
+      .spark.small {
+        bottom: 10px;
+        height: 30px;
+      }
+
+      .metric .delta {
+        position: static;
+        display: inline-flex;
+        gap: 5px;
+        margin-top: 4px;
+        font-size: 12px;
+        text-align: left;
+      }
+
+      .metric .delta span {
+        display: inline;
+        margin-top: 0;
+        font-size: 10px;
+      }
+
+      #distributionPanel {
+        padding: 14px 16px 13px;
+      }
+
+      #distributionPanel .forecast {
+        font-size: 11px;
+      }
+
+      .distribution-chart {
+        min-height: 124px;
+      }
+
+      #distributionPanel .dist-bar-value {
+        font-size: 7px;
+      }
+
+      .lower {
+        gap: 12px;
+      }
+
+      .lower .panel {
+        padding-top: 12px;
+        padding-bottom: 10px;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .topbar {
+        grid-template-columns: 152px minmax(270px, 1fr) auto;
+        height: auto;
+        min-height: 58px;
+        padding: 10px 16px;
+      }
+
+      .tabs {
+        gap: 20px;
+      }
+
+      .tab {
+        font-size: 13px;
+      }
+
+      .actions {
+        justify-content: flex-end;
+      }
+
+      main {
+        padding: 10px 16px 8px;
+      }
+
+      .grid {
+        grid-template-columns: minmax(0, 1.48fr) minmax(270px, .52fr);
+        gap: 12px;
+      }
+
+      .panel {
+        padding: 13px 15px;
+      }
+
+      .panel-title {
+        margin-bottom: 8px;
+      }
+
+      .panel-title h2,
+      .panel-title h3 {
+        font-size: 15px;
+      }
+
+      .legend {
+        gap: 8px 18px;
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+
+      .chart-wrap {
+        height: 170px;
+      }
+
+      .quota {
+        min-height: 170px;
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+
+      .ringbox {
+        height: 104px;
+      }
+
+      .ringbox > svg {
+        width: 116px;
+        height: 116px;
+      }
+
+      .shield {
+        font-size: 10px;
+      }
+
+      .shield svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .quota-values {
+        gap: 7px;
+      }
+
+      .quota-row {
+        grid-template-columns: 58px minmax(58px, 1fr) 48px;
+        gap: 8px;
+      }
+
+      .quota-name {
+        font-size: 12px;
+      }
+
+      .quota-value {
+        font-size: 16px;
+      }
+
+      .quota-note {
+        font-size: 10px;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        height: 110px;
+        padding: 13px 14px 11px;
+      }
+
+      .metric h3 {
+        font-size: 13px;
+      }
+
+      .metric-value {
+        font-size: 29px;
+      }
+
+      .metric-unit {
+        font-size: 11px;
+      }
+
+      .splitbar {
+        margin: 9px 0 7px;
+      }
+
+      .split-legend {
+        font-size: 11px;
+        gap: 5px 8px;
+      }
+
+      .split-legend b {
+        font-size: 11px;
+      }
+
+      .metric-footer {
+        margin-top: 14px;
+        padding-top: 9px;
+        font-size: 12px;
+      }
+
+      .metric-footer strong {
+        font-size: 17px;
+      }
+
+      .spark {
+        right: 12px;
+        bottom: 17px;
+        width: 96px;
+        height: 34px;
+      }
+
+      .metric .delta {
+        right: 12px;
+        top: 34px;
+        font-size: 13px;
+      }
+
+      .lower {
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) minmax(260px, .92fr);
+        gap: 12px;
+      }
+
+      .lower .panel {
+        padding-top: 12px;
+        padding-bottom: 10px;
+      }
+
+      .session-head,
+      .session-row {
+        grid-template-columns: 1.2fr .82fr .92fr .58fr .34fr;
+        gap: 8px;
+      }
+
+      .session-head {
+        font-size: 10px;
+      }
+
+      .session-row {
+        min-height: 26px;
+        font-size: 12px;
+      }
+
+      .pill {
+        padding: 2px 7px;
+        font-size: 10px;
+      }
+
+      .model-row {
+        grid-template-columns: 108px 1fr 58px 52px;
+        gap: 10px;
+        min-height: 34px;
+        font-size: 12px;
+      }
+
+      .model-row .tokens,
+      .model-row .latency {
+        font-size: 11px;
+      }
+
+      .risk-list {
+        gap: 7px;
+      }
+
+      .risk-row {
+        grid-template-columns: 22px 36px minmax(70px, 1fr) 62px 34px;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .risk-row .value,
+      .risk-row .percent {
+        font-size: 11px;
+      }
+
+      .warning {
+        grid-template-columns: 30px 1fr 14px;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .warning strong {
+        font-size: 12px;
+      }
+
+      .coverage {
+        padding: 7px 14px;
+      }
+
+      .coverage h3 {
+        font-size: 14px;
+      }
+
+      .matrix.codex-matrix {
+        grid-template-columns: 140px 1fr 70px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 1050px) and (min-width: 701px) {
+      .topbar {
+        grid-template-columns: 150px 1fr;
+      }
+
+      #tokenPanel .panel-title {
+        flex-wrap: wrap;
+      }
+
+      #tokenPanel .trend-heading {
+        width: 100%;
+      }
+
+      #tokenPanel .chart-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+      }
+
+      .actions {
+        grid-column: 1 / -1;
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-height: 760px) and (min-width: 701px) {
+      .topbar {
+        min-height: 52px;
+        padding-top: 7px;
+        padding-bottom: 7px;
+      }
+
+      main {
+        padding-top: 8px;
+      }
+
+      .grid,
+      .metrics,
+      .lower {
+        gap: 10px;
+      }
+
+      .panel {
+        padding: 10px 12px;
+      }
+
+      .panel-title {
+        margin-bottom: 5px;
+      }
+
+      .legend {
+        gap: 5px 12px;
+        margin-bottom: 2px;
+        font-size: 11px;
+      }
+
+      .chart-wrap {
+        height: 128px;
+      }
+
+      .quota {
+        min-height: 148px;
+      }
+
+      .ringbox {
+        height: 76px;
+      }
+
+      .ringbox > svg {
+        width: 96px;
+        height: 96px;
+      }
+
+      .shield span {
+        display: none;
+      }
+
+      .quota-values {
+        gap: 5px;
+      }
+
+      .quota-row {
+        grid-template-columns: 58px minmax(52px, 1fr) 45px;
+      }
+
+      .metric {
+        height: 92px;
+        min-height: 92px;
+        padding: 10px 12px 8px;
+      }
+
+      .metric-value {
+        font-size: 25px;
+      }
+
+      .splitbar {
+        margin: 7px 0 5px;
+      }
+
+      .split-legend {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .split-legend b,
+      .split-legend span {
+        font-size: 10px;
+      }
+
+      .metric-footer {
+        margin-top: 8px;
+        padding-top: 6px;
+      }
+
+      .spark {
+        bottom: 12px;
+        height: 28px;
+      }
+
+      .lower .panel {
+        padding-top: 10px;
+        padding-bottom: 8px;
+      }
+
+      .session-row {
+        min-height: 23px;
+      }
+
+      .model-row {
+        min-height: 30px;
+      }
+
+      .warning {
+        padding: 6px 9px;
+      }
+
+      .coverage {
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .coverage h3 {
+        margin-bottom: 4px;
+      }
+    }
+
+    @media (max-height: 760px) and (min-width: 1181px) {
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        align-self: stretch;
+      }
+
+      .metric {
+        height: 116px;
+        min-height: 116px;
+        padding: 11px 14px 9px;
+      }
+
+      .metric-value {
+        font-size: 27px;
+      }
+
+      .splitbar {
+        margin: 7px 0 5px;
+      }
+
+      .split-legend {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px 8px;
+      }
+
+      .split-legend b,
+      .split-legend span {
+        font-size: 10px;
+      }
+
+      .metric-footer {
+        margin-top: 6px;
+        padding-top: 5px;
+      }
+
+      .spark {
+        right: 12px;
+        bottom: 10px;
+        width: 100px;
+        height: 28px;
+      }
+
+      .spark.small {
+        bottom: 8px;
+        height: 26px;
+      }
+
+      .metric .delta {
+        top: 34px;
+        right: 14px;
+        font-size: 12px;
+      }
+
+      .metric .delta span {
+        font-size: 10px;
+      }
+
+      .lower .panel {
+        padding: 9px 12px 7px;
+      }
+
+      .session-head {
+        height: 20px;
+        font-size: 10px;
+      }
+
+      .session-row {
+        min-height: 23px;
+        font-size: 12px;
+      }
+
+      .model-list .session-head {
+        grid-template-columns: 108px 1fr 58px 52px !important;
+      }
+
+      .model-row {
+        min-height: 28px;
+      }
+
+      .risk-list {
+        gap: 5px;
+      }
+
+      .risk-row {
+        min-height: 20px;
+      }
+
+      .warning {
+        margin-top: 5px;
+        padding: 6px 9px;
+      }
+
+      .warning strong {
+        margin-bottom: 1px;
+      }
+
+      .link {
+        margin-top: 4px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 1050px) and (min-width: 701px) {
+      .lower .panel {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .session-head {
+        display: none;
+      }
+
+      .session-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          "name status"
+          "model req"
+          "bar bar";
+        gap: 4px 8px;
+        min-height: 42px;
+        padding: 7px 0;
+      }
+
+      .session-row .rank-name {
+        grid-area: name;
+      }
+
+      .session-row .pill {
+        grid-area: model;
+      }
+
+      .session-row .mini-bar {
+        grid-area: bar;
+      }
+
+      .session-row > span:nth-child(4) {
+        grid-area: req;
+        justify-self: end;
+        color: #536985;
+      }
+
+      .session-row .status {
+        grid-area: status;
+      }
+
+      .model-row {
+        grid-template-columns: minmax(0, 1fr) 58px;
+        grid-template-areas:
+          "name tokens"
+          "bar latency";
+        gap: 5px 8px;
+        min-height: 48px;
+      }
+
+      .model-row .name {
+        grid-area: name;
+        min-width: 0;
+      }
+
+      .model-row .bar {
+        grid-area: bar;
+      }
+
+      .model-row .tokens {
+        grid-area: tokens;
+      }
+
+      .model-row .latency {
+        grid-area: latency;
+      }
+
+      .risk-row {
+        grid-template-columns: 22px 34px minmax(64px, 1fr) 68px;
+      }
+
+      .risk-row .percent {
+        display: none;
+      }
+
+      .warning {
+        grid-template-columns: 28px 1fr;
+      }
+
+      .warning > span:last-child {
+        display: none;
+      }
+    }
+
+    @media (max-width: 700px) {
+      #tokenPanel .panel-title {
+        flex-wrap: wrap;
+      }
+
+      #tokenPanel .trend-heading {
+        width: 100%;
+      }
+
+      #tokenPanel .chart-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px 12px;
+        position: relative;
+      }
+
+      .brand {
+        min-height: 28px;
+        padding-right: 118px;
+      }
+
+      .tabs {
+        width: 100%;
+        height: 30px;
+        gap: 20px;
+        padding: 0 2px;
+      }
+
+      .tab {
+        flex: 0 0 auto;
+        font-size: 13px;
+      }
+
+      .actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        overflow: visible;
+      }
+
+      .sources,
+      .date-filter {
+        justify-content: flex-start;
+      }
+
+      .sync {
+        position: absolute;
+        top: 14px;
+        right: 12px;
+        justify-content: flex-end;
+        font-size: 12px;
+      }
+
+      .date-filter {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+      }
+
+      .period-btn {
+        width: 100%;
+        height: 34px;
+        padding: 0 6px;
+      }
+
+      .sources {
+        width: 100%;
+        height: 30px;
+        padding: 0 8px;
+        overflow: hidden;
+      }
+
+      .source-chip {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0 5px;
+        font-size: 11px;
+      }
+
+      .custom-range {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .custom-range input {
+        width: min(132px, calc((100% - 22px) / 2));
+      }
+
+      .segmented.codex-only {
+        grid-column: 1 / -1;
+        width: 100%;
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, .95fr) minmax(0, 1.12fr);
+      }
+
+      .segmented span,
+      .source-chip {
+        min-width: 0;
+        padding: 0 8px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .range {
+        width: max-content;
+        max-width: 100%;
+        padding: 0 12px;
+        font-size: 12px;
+      }
+
+      .sync {
+        justify-self: end;
+        font-size: 13px;
+      }
+
+      main {
+        padding: 14px 14px 10px;
+      }
+
+      .grid,
+      .lower,
+      .metrics {
+        gap: 14px;
+      }
+
+      .grid,
+      .lower {
+        grid-template-columns: 1fr;
+      }
+
+      #tokenPanel { order: 1; }
+      #quotaPanel { order: 2; }
+      #distributionPanel { order: 3; }
+      .metrics { order: 4; }
+      .lower { order: 5; }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .panel {
+        padding: 14px 16px;
+      }
+
+      .panel-title {
+        align-items: flex-start;
+      }
+
+      .panel-title h2,
+      .panel-title h3 {
+        font-size: 16px;
+      }
+
+      .badge,
+      .forecast {
+        font-size: 12px;
+      }
+
+      .legend {
+        gap: 9px 16px;
+        font-size: 12px;
+      }
+
+      .chart-wrap {
+        height: auto;
+        min-height: 86px;
+        aspect-ratio: 1000 / 214;
+      }
+
+      .quota {
+        grid-template-columns: 132px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+      }
+
+      .ringbox {
+        height: 132px;
+      }
+
+      .ringbox > svg {
+        width: 132px;
+        height: 132px;
+      }
+
+      .shield {
+        font-size: 10px;
+      }
+
+      .shield svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .quota-row {
+        grid-template-columns: 58px minmax(52px, 1fr) 46px;
+        gap: 7px;
+      }
+
+      .quota-name {
+        font-size: 12px;
+      }
+
+      .quota-note {
+        font-size: 10px;
+        line-height: 1.15;
+      }
+
+      .metric {
+        height: auto;
+        min-height: 122px;
+      }
+
+      .spark {
+        width: 108px;
+        right: 14px;
+      }
+
+      .session-head {
+        display: none;
+      }
+
+      .session-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          "name status"
+          "model req"
+          "bar bar";
+        gap: 6px 12px;
+        padding: 9px 0;
+      }
+
+      .session-row .rank-name {
+        grid-area: name;
+      }
+
+      .session-row .pill {
+        grid-area: model;
+      }
+
+      .session-row .mini-bar {
+        grid-area: bar;
+      }
+
+      .session-row > span:nth-child(4) {
+        grid-area: req;
+        justify-self: end;
+        color: #536985;
+      }
+
+      .session-row .status {
+        grid-area: status;
+      }
+
+      .model-row {
+        grid-template-columns: minmax(118px, 1fr) 1.3fr 64px;
+        grid-template-areas:
+          "name bar tokens"
+          "name bar latency";
+        gap: 5px 12px;
+        min-height: 50px;
+      }
+
+      .model-row .name {
+        grid-area: name;
+      }
+
+      .model-row .bar {
+        grid-area: bar;
+      }
+
+      .model-row .tokens {
+        grid-area: tokens;
+      }
+
+      .model-row .latency {
+        grid-area: latency;
+      }
+
+      .risk-row {
+        grid-template-columns: 24px 42px minmax(80px, 1fr) 76px;
+      }
+
+      .risk-row .percent {
+        display: none;
+      }
+
+      .warning {
+        grid-template-columns: 30px 1fr;
+      }
+
+      .warning > span:last-child {
+        display: none;
+      }
+
+      .matrix.codex-matrix {
+        grid-template-columns: 100px minmax(0, 1fr) 42px;
+        font-size: 11px;
+      }
+
+      .matrix > div {
+        padding: 0 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .topbar {
+        gap: 6px;
+        padding: 8px 12px;
+      }
+
+      .brand {
+        min-height: 26px;
+      }
+
+      .brand-mark {
+        width: 26px;
+        height: 26px;
+      }
+
+      .tabs {
+        height: 28px;
+      }
+
+      .period-btn {
+        height: 30px;
+      }
+
+      .sync {
+        top: 11px;
+      }
+
+      main {
+        padding: 12px 10px 10px;
+      }
+
+      .panel,
+      .metric,
+      .coverage {
+        border-radius: 8px;
+      }
+
+      .panel {
+        padding: 13px 14px;
+      }
+
+      .chart-wrap {
+        height: auto;
+        min-height: 78px;
+      }
+
+      .sources {
+        display: none;
+      }
+
+      .quota {
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 8px;
+      }
+
+      .ringbox {
+        height: 118px;
+      }
+
+      .ringbox > svg {
+        width: 118px;
+        height: 118px;
+      }
+
+      .quota-row {
+        grid-template-columns: 54px minmax(54px, 1fr) 44px;
+        gap: 6px;
+      }
+
+      .quota-values {
+        gap: 6px;
+      }
+
+      .quota-value {
+        font-size: 15px;
+      }
+
+      .quota-note {
+        margin-top: -6px;
+      }
+
+      .split-legend {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric-value {
+        font-size: 30px;
+      }
+
+      .spark {
+        opacity: .72;
+        width: 96px;
+      }
+
+      .model-row {
+        grid-template-columns: minmax(96px, 1fr) 1fr 58px;
+      }
+
+      .risk-row {
+        grid-template-columns: 22px 38px minmax(80px, 1fr) 68px;
+        gap: 8px;
+      }
+
+      .warning strong {
+        font-size: 13px;
+      }
+
+      .matrix.codex-matrix {
+        grid-template-columns: 88px minmax(0, 1fr) 32px;
+        font-size: 10px;
+      }
+
+      .distribution-chart {
+        gap: 5px;
+        min-height: 92px;
+      }
+
+      .dist-bar {
+        height: 86px;
+        grid-template-rows: auto 1fr;
+      }
+
+      .dist-bar-value {
+        font-size: 8px;
+      }
+
+      .dist-bar-label {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2.5 20.2 7v9.2L12 21 3.8 16.2V7L12 2.5Z" fill="currentColor" opacity=".25"/>
+            <path d="M12 3.5 19 7.4v7.9l-7 4.1-7-4.1V7.4l7-3.9Z" fill="#fff"/>
+            <path d="M12 3.5 19 7.4l-7 4.2-7-4.2 7-3.9Z" fill="#1668f2"/>
+          </svg>
+        </span>
+        <span>QuotaScope</span>
+      </div>
+
+      <nav class="tabs" aria-label="主导航">
+        <button class="tab active" type="button" data-scroll-target="overview">总览</button>
+        <button class="tab" type="button" data-scroll-target="quotaPanel">额度</button>
+        <button class="tab" type="button" data-scroll-target="tokenPanel">Token</button>
+        <button class="tab" type="button" data-scroll-target="sessionPanel">会话</button>
+        <button class="tab" type="button" data-scroll-target="modelPanel">模型</button>
+        <button class="tab" type="button" data-scroll-target="riskPanel">速率</button>
+      </nav>
+
+      <div class="actions">
+        <div class="sources" aria-label="Codex 数据来源">
+          <span class="source-chip primary">Codex 桌面端</span>
+          <span class="source-chip">本地日志</span>
+          <span class="source-chip">额度状态</span>
+        </div>
+        <div class="date-filter" id="dateFilter" aria-label="日期筛选">
+          <button class="period-btn" type="button" data-range="24h">近24小时</button>
+          <button class="period-btn active" type="button" data-range="today">今天</button>
+          <button class="period-btn" type="button" data-range="7">7天内</button>
+          <button class="period-btn" type="button" data-range="30">30天内</button>
+          <button class="period-btn" type="button" data-range="custom">自定义</button>
+          <div id="customRange" class="custom-range" hidden>
+            <input id="startDate" type="date" aria-label="开始日期">
+            <span>至</span>
+            <input id="endDate" type="date" aria-label="结束日期">
+          </div>
+        </div>
+        <div class="sync">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+            <path d="m8 12 2.4 2.4L16 8.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="syncText">-- 已同步</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="overview" class="grid" aria-label="Codex 用量总览">
+        <article id="tokenPanel" class="panel">
+          <div class="panel-title">
+            <div class="trend-heading">
+              <h2>Token 消耗趋势 <span class="hint">i</span></h2>
+              <div id="chartMeta" class="forecast">峰值 --</div>
+            </div>
+            <div class="chart-actions">
+              <div class="trend-toggle" role="group" aria-label="趋势尺度">
+                <button class="trend-scale active" type="button" data-trend-scale="linear">绝对</button>
+                <button class="trend-scale" type="button" data-trend-scale="log">对数</button>
+              </div>
+              <div class="trend-toggle" role="group" aria-label="趋势统计方式">
+                <button class="trend-mode active" type="button" data-trend-mode="bucket">分时</button>
+                <button class="trend-mode" type="button" data-trend-mode="cumulative">累计</button>
+              </div>
+            </div>
+          </div>
+          <div class="legend" aria-label="趋势指标">
+            <button class="legend-item" type="button" data-series="total" aria-pressed="true"><span class="check on"></span><span>总量</span></button>
+            <button class="legend-item" type="button" data-series="cached" aria-pressed="true"><span class="check on teal"></span><span>缓存</span></button>
+            <button class="legend-item" type="button" data-series="output" aria-pressed="true"><span class="check on sky"></span><span>输出</span></button>
+            <button class="legend-item" type="button" data-series="input" aria-pressed="true"><span class="check on"></span><span>输入</span></button>
+            <button class="legend-item" type="button" data-series="reasoning" aria-pressed="true"><span class="check on violet"></span><span>推理</span></button>
+          </div>
+          <div class="chart-wrap">
+            <svg id="trendChart" viewBox="0 0 1000 214" role="img" aria-label="Token 消耗折线图">
+              <line x1="40" y1="194" x2="985" y2="194" class="axis-line"/>
+              <text x="444" y="112" class="chart-label">等待本地 Codex 数据</text>
+            </svg>
+          </div>
+        </article>
+
+        <article id="quotaPanel" class="panel">
+          <div class="panel-title">
+            <h2>真实剩余额度</h2>
+            <span class="badge">来源：额度状态</span>
+          </div>
+          <div class="quota">
+            <div class="ringbox" aria-label="额度环形图">
+              <svg viewBox="0 0 210 210" aria-hidden="true">
+                <circle class="ring-bg" cx="105" cy="105" r="76"/>
+                <circle class="ring-bg" cx="105" cy="105" r="58"/>
+                <circle class="ring-bg" cx="105" cy="105" r="40"/>
+                <circle class="ring-main" cx="105" cy="105" r="76"/>
+                <circle class="ring-teal" cx="105" cy="105" r="58"/>
+                <circle class="ring-sky" cx="105" cy="105" r="40"/>
+              </svg>
+              <div class="shield">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3.2 19 6.5v5.2c0 4.4-2.8 7.3-7 9.1-4.2-1.8-7-4.7-7-9.1V6.5l7-3.3Z" fill="#e9fff3" stroke="#1db954" stroke-width="1.8"/>
+                  <path d="m8.7 12.1 2.2 2.2 4.5-5" stroke="#1db954" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span id="shieldState">等待数据</span>
+              </div>
+            </div>
+            <div class="quota-values">
+              <div class="quota-row">
+                <div class="quota-name">5h 窗口</div>
+                <div class="track"><div id="primaryFill" class="fill" style="width:0"></div></div>
+                <div id="primaryRemain" class="quota-value">--</div>
+                <div id="primaryNote" class="quota-note">等待 rate_limits</div>
+              </div>
+              <div class="quota-row">
+                <div class="quota-name">周限额</div>
+                <div class="track"><div id="secondaryFill" class="fill teal" style="width:0"></div></div>
+                <div id="secondaryRemain" class="quota-value">--</div>
+                <div id="secondaryNote" class="quota-note">等待 rate_limits</div>
+              </div>
+              <div class="quota-row">
+                <div class="quota-name">套餐</div>
+                <div class="track"><div class="fill" style="width:0"></div></div>
+                <div id="planType" class="quota-value">--</div>
+                <div class="quota-note">Codex ChatGPT 套餐</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <section class="metrics">
+          <article class="metric metric-primary">
+            <h3>Token 总量</h3>
+            <div id="tokenTotal" class="metric-value">--</div>
+            <div class="splitbar" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <div class="split-legend">
+              <span><i class="dot"></i>输入<b id="inputTokens">--</b></span>
+              <span><i class="dot teal"></i>缓存<b id="cachedTokens">--</b></span>
+              <span><i class="dot sky"></i>输出<b id="outputTokens">--</b></span>
+              <span><i class="dot violet"></i>推理<b id="reasoningTokens">--</b></span>
+            </div>
+          </article>
+          <article class="metric">
+            <h3>调用量</h3>
+            <div id="requestCount" class="metric-value">--</div>
+            <svg class="spark" viewBox="0 0 126 42" aria-hidden="true">
+              <path id="requestSpark" fill="none" stroke="#2f80ff" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+            <div class="metric-footer">
+              <span>成功率 <strong id="successRate">--</strong></span>
+              <span>失败 <strong id="failureCount" class="fail">--</strong></span>
+            </div>
+          </article>
+          <article class="metric">
+            <h3>峰值速率</h3>
+            <div><span id="peakRate" class="metric-value">--</span><span class="metric-unit">TPM</span></div>
+            <svg class="spark" viewBox="0 0 126 42" aria-hidden="true">
+              <path id="peakSpark" fill="none" stroke="#2f80ff" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+            <div class="metric-footer">
+              <span>当前筛选区间峰值</span>
+            </div>
+          </article>
+          <article class="metric">
+            <h3>缓存命中率</h3>
+            <div id="cacheHit" class="metric-value">--</div>
+            <div class="delta">缓存<span>输入 token</span></div>
+            <svg class="spark small" viewBox="0 0 126 36" aria-hidden="true">
+              <path id="cacheSpark" fill="none" stroke="#2f80ff" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </article>
+        </section>
+
+        <section id="distributionPanel" class="coverage distribution-panel" aria-label="调用和 Token 分布">
+          <div class="panel-title distribution-title">
+            <div class="dist-heading">
+              <h3>时间分布</h3>
+              <div id="rangeSummary" class="forecast">今天</div>
+            </div>
+            <div class="dist-toolbar">
+              <div class="dist-toggle" role="group" aria-label="分布指标">
+                <button class="dist-mode active" type="button" data-dist-mode="calls">调用</button>
+                <button class="dist-mode" type="button" data-dist-mode="tokens">Token</button>
+              </div>
+            </div>
+          </div>
+          <div id="distributionChart" class="distribution-chart"></div>
+        </section>
+
+        <section class="lower">
+          <article id="sessionPanel" class="panel">
+            <div class="panel-title"><h3>会话排行</h3></div>
+            <div id="sessionList" class="rank-list">
+              <div class="session-head">
+                <span>会话</span><span>模型</span><span>Token 消耗</span><span>调用数</span><span>状态</span>
+              </div>
+              <div class="list-empty">等待本地 Codex 会话数据</div>
+            </div>
+            <button id="toggleSessions" class="link" type="button" hidden>展开会话 <span>↓</span></button>
+          </article>
+
+          <article id="modelPanel" class="panel">
+            <div class="panel-title"><h3>模型排行</h3></div>
+            <div id="modelList" class="model-list">
+              <div class="session-head" style="grid-template-columns:120px 1fr 72px 62px">
+                <span>模型</span><span></span><span>Token 总量</span><span>首 Token 延迟</span>
+              </div>
+              <div class="list-empty">等待本地 Codex 模型数据</div>
+            </div>
+            <button id="toggleModels" class="link" type="button" hidden>展开模型 <span>↓</span></button>
+          </article>
+
+          <article id="riskPanel" class="panel">
+            <div class="panel-title"><h3>速率与风险</h3></div>
+            <div id="riskList" class="risk-list">
+              <div class="list-empty">等待 rate_limits 与调用数据</div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="./data.sample.js"></script>
+  <script src="./data.js"></script>
+  <script>
+    (() => {
+      const data = window.QUOTASCOPE_DATA;
+      if (!data) return;
+      const uiState = {
+        sessionsExpanded: false,
+        modelsExpanded: false,
+        distributionMode: "calls",
+        trendMode: "bucket",
+        trendScale: "linear",
+        trendSeries: {
+          total: true,
+          cached: true,
+          output: true,
+          input: true,
+          reasoning: true,
+        },
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const pct = (value) => `${Math.max(0, Math.min(100, Number(value) || 0)).toFixed(0)}%`;
+      const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[ch]);
+
+      const setText = (id, value) => {
+        const el = $(id);
+        if (el) el.textContent = value;
+      };
+
+      const DAY = 24 * 60 * 60 * 1000;
+      const records = data.records || [];
+      const ttfbRecords = data.ttfbRecords || [];
+      const failureRecords = data.failureRecords || [];
+      const sessionsCatalog = data.sessionsCatalog || {};
+      const limits = data.limits || {};
+      let summary = data.summary || {};
+      let trendRows = data.trend || [];
+      let distributionRows = [];
+      let sessionRows = data.sessions || [];
+      let modelRows = data.models || [];
+      let riskRows = data.risk || [];
+      const latestDataTime = Math.max(
+        Number((data.availableRange || {}).end) || 0,
+        ...records.map((record) => Number(record[0]) || 0),
+      ) || Date.now();
+      const rangeNow = () => Math.min(Date.now(), latestDataTime);
+
+      const localDayStart = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const ymd = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      };
+      const parseYmdStart = (value) => {
+        if (!value) return null;
+        const [y, m, d] = value.split("-").map(Number);
+        if (!y || !m || !d) return null;
+        return new Date(y, m - 1, d).getTime();
+      };
+      const formatBucketLabel = (ts, multiDay) => {
+        const date = new Date(ts);
+        if (multiDay) return `${date.getMonth() + 1}/${date.getDate()}`;
+        return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+      };
+      const formatRangeLabel = (start, end, preset) => {
+        if (preset === "24h") return "最近24小时";
+        if (preset === "today") return "今天";
+        if (preset === "7") return "7天内";
+        if (preset === "30") return "30天内";
+        return `${ymd(new Date(start))} 至 ${ymd(new Date(end - 1))}`;
+      };
+      const fmt = (value) => {
+        value = Number(value) || 0;
+        if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
+        if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
+        if (Math.abs(value) >= 1e3) return `${Math.round(value / 1e3)}K`;
+        return `${Math.round(value)}`;
+      };
+      const rangeForPreset = (preset) => {
+        const now = rangeNow();
+        const today = localDayStart(new Date(now)).getTime();
+        const todayLabel = today === localDayStart(new Date(Date.now())).getTime() ? "今天" : ymd(new Date(today));
+        if (preset === "24h") return { start: now - DAY, end: now, preset, label: "最近24小时" };
+        if (preset === "today") return { start: today, end: now, preset, label: todayLabel };
+        if (preset === "7") return { start: today - 6 * DAY, end: now, preset, label: "7天内" };
+        if (preset === "30") return { start: today - 29 * DAY, end: now, preset, label: "30天内" };
+        const startInput = parseYmdStart($("startDate")?.value) ?? today;
+        const endInput = parseYmdStart($("endDate")?.value) ?? today;
+        const start = Math.min(startInput, endInput);
+        const end = Math.min(now, Math.max(startInput, endInput) + DAY);
+        return { start, end, preset: "custom", label: formatRangeLabel(start, end, "custom") };
+      };
+      const emptyUsage = () => ({ input: 0, cached: 0, output: 0, reasoning: 0, total: 0, requests: 0 });
+      const buildBuckets = (filtered, range) => {
+        const duration = Math.max(1, range.end - range.start);
+        const dayCount = duration / DAY;
+        const bucketCount = dayCount <= 1 ? 12 : dayCount <= 7 ? 7 : Math.min(16, Math.ceil(dayCount / 2));
+        const step = duration / bucketCount;
+        const multiDay = dayCount > 1.2;
+        const buckets = Array.from({ length: bucketCount }, (_, index) => ({
+          ...emptyUsage(),
+          start: range.start + index * step,
+          end: index === bucketCount - 1 ? range.end + 1 : range.start + (index + 1) * step,
+        }));
+        for (const record of filtered) {
+          const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((record[0] - range.start) / step)));
+          const bucket = buckets[idx];
+          bucket.input += record[3] || 0;
+          bucket.cached += record[4] || 0;
+          bucket.output += record[5] || 0;
+          bucket.reasoning += record[6] || 0;
+          bucket.total += record[7] || 0;
+          bucket.requests += 1;
+        }
+        return buckets.map((bucket) => ({ ...bucket, label: formatBucketLabel(bucket.start, multiDay), stepMinutes: step / 60000 }));
+      };
+      const computeStats = (range) => {
+        const filtered = records.filter((record) => record[0] >= range.start && record[0] <= range.end);
+        const failures = failureRecords.filter((record) => record[0] >= range.start && record[0] <= range.end);
+        const ttfb = ttfbRecords.filter((record) => record[0] >= range.start && record[0] <= range.end);
+        const totals = emptyUsage();
+        const bySession = new Map();
+        const byModel = new Map();
+        for (const record of filtered) {
+          totals.input += record[3] || 0;
+          totals.cached += record[4] || 0;
+          totals.output += record[5] || 0;
+          totals.reasoning += record[6] || 0;
+          totals.total += record[7] || 0;
+          totals.requests += 1;
+          const sid = record[1] || "unknown";
+          const model = record[2] || "unknown";
+          const catalog = sessionsCatalog[sid] || {};
+          const session = bySession.get(sid) || { name: catalog.name || `会话 ${sid.slice(-6)}`, model, tokens: 0, requests: 0, status: "ok" };
+          session.tokens += record[7] || 0;
+          session.requests += 1;
+          bySession.set(sid, session);
+          const modelRow = byModel.get(model) || { name: model, tokens: 0, requests: 0, latencyTotal: 0, latencyCount: 0 };
+          modelRow.tokens += record[7] || 0;
+          modelRow.requests += 1;
+          byModel.set(model, modelRow);
+        }
+        for (const record of ttfb) {
+          const model = record[2] || "unknown";
+          const modelRow = byModel.get(model) || { name: model, tokens: 0, requests: 0, latencyTotal: 0, latencyCount: 0 };
+          modelRow.latencyTotal += record[3] || 0;
+          modelRow.latencyCount += 1;
+          byModel.set(model, modelRow);
+        }
+        const buckets = buildBuckets(filtered, range);
+        const peak = buckets.reduce((best, row) => row.total > best.total ? row : best, { total: 0, label: "--", stepMinutes: 1 });
+        const cacheHit = totals.input ? totals.cached / totals.input * 100 : 0;
+        const failureRate = totals.requests ? failures.length / totals.requests * 100 : 0;
+        const successRate = totals.requests ? Math.max(0, (totals.requests - failures.length) / totals.requests * 100) : 100;
+        const sessions = Array.from(bySession.values()).sort((a, b) => b.tokens - a.tokens).slice(0, 20);
+        const maxSessionTokens = Math.max(1, ...sessions.map((row) => row.tokens));
+        const models = Array.from(byModel.values()).sort((a, b) => b.tokens - a.tokens).slice(0, 12);
+        const maxModelTokens = Math.max(1, ...models.map((row) => row.tokens));
+        return {
+          label: range.label,
+          summary: {
+            totalTokensLabel: fmt(totals.total),
+            inputLabel: fmt(totals.input),
+            cachedLabel: fmt(totals.cached),
+            outputLabel: fmt(totals.output),
+            reasoningLabel: fmt(totals.reasoning),
+            requestsLabel: totals.requests.toLocaleString(),
+            failures: failures.length,
+            successRateLabel: `${successRate.toFixed(1)}%`,
+            cacheHitLabel: `${cacheHit.toFixed(1)}%`,
+            peakLabel: fmt(peak.total),
+            peakTime: peak.label,
+            peakTpmLabel: `${fmt(peak.total / Math.max(1, peak.stepMinutes))} TPM`,
+          },
+          trend: buckets,
+          distribution: buckets,
+          sessions: sessions.map((row, index) => ({
+            ...row,
+            rank: index + 1,
+            tokensLabel: fmt(row.tokens),
+            percent: Math.round(row.tokens / maxSessionTokens * 100),
+          })),
+          models: models.map((row) => ({
+            name: row.name,
+            tokens: row.tokens,
+            tokensLabel: fmt(row.tokens),
+            requests: row.requests,
+            latency: row.latencyCount ? row.latencyTotal / row.latencyCount / 1000 : 0,
+            latencyLabel: row.latencyCount ? `${(row.latencyTotal / row.latencyCount / 1000).toFixed(2)}s` : "--",
+            percent: Math.round(row.tokens / maxModelTokens * 100),
+          })),
+          risk: [
+            {"name": "5h", "value": limits.primaryUsed || 0, "label": `已用 ${limits.primaryUsed || 0}%`},
+            {"name": "周限额", "value": limits.secondaryUsed || 0, "label": `已用 ${limits.secondaryUsed || 0}%`},
+            {"name": "缓存", "value": cacheHit, "label": `命中 ${cacheHit.toFixed(0)}%`},
+            {"name": "失败", "value": failureRate, "label": `${failures.length} (${failureRate.toFixed(1)}%)`},
+          ],
+        };
+      };
+      const applyStats = (stats) => {
+        summary = stats.summary;
+        summary.rangeLabel = stats.label;
+        trendRows = stats.trend;
+        distributionRows = stats.distribution;
+        sessionRows = stats.sessions;
+        modelRows = stats.models;
+        riskRows = stats.risk;
+        setText("tokenTotal", summary.totalTokensLabel || "--");
+        setText("inputTokens", summary.inputLabel || "--");
+        setText("cachedTokens", summary.cachedLabel || "--");
+        setText("outputTokens", summary.outputLabel || "--");
+        setText("reasoningTokens", summary.reasoningLabel || "--");
+        setText("requestCount", summary.requestsLabel || "0");
+        setText("successRate", summary.successRateLabel || "--");
+        setText("failureCount", summary.failures ?? "0");
+        setText("cacheHit", summary.cacheHitLabel || "--");
+        setText("peakRate", (summary.peakTpmLabel || "--").replace(/\s*TPM$/, ""));
+        setText("chartMeta", `峰值 ${summary.peakLabel || "--"} @ ${summary.peakTime || "--"}`);
+      };
+      setText("syncText", `${data.generatedAt?.slice(11, 16) || "--"} 已同步`);
+
+      const primaryRemain = limits.primaryRemaining ?? null;
+      const secondaryRemain = limits.secondaryRemaining ?? null;
+      const hasLimitData = primaryRemain !== null || secondaryRemain !== null;
+      setText("shieldState", limits.rateLimitReachedType ? "已触发限流" : hasLimitData ? "当前安全" : "等待数据");
+      if (primaryRemain !== null) {
+        setText("primaryRemain", pct(primaryRemain));
+        $("primaryFill").style.width = pct(primaryRemain);
+        setText("primaryNote", `已用 ${pct(limits.primaryUsed)} · reset ${limits.primaryReset || "--"}`);
+      }
+      if (secondaryRemain !== null) {
+        setText("secondaryRemain", pct(secondaryRemain));
+        $("secondaryFill").style.width = pct(secondaryRemain);
+        setText("secondaryNote", `已用 ${pct(limits.secondaryUsed)} · reset ${limits.secondaryReset || "--"}`);
+      }
+      setText("planType", (limits.planType || "Pro").toUpperCase());
+
+      const setRing = (selector, remain, radius) => {
+        const el = document.querySelector(selector);
+        if (!el || remain === null || remain === undefined) return;
+        const circumference = Math.PI * 2 * radius;
+        el.style.strokeDasharray = `${circumference * Math.max(0, Math.min(100, remain)) / 100} ${circumference}`;
+      };
+      setRing(".ring-main", primaryRemain, 76);
+      setRing(".ring-teal", secondaryRemain, 58);
+
+      const niceMax = (value) => {
+        if (!value) return 1000;
+        const pow = Math.pow(10, Math.floor(Math.log10(value)));
+        return Math.ceil(value / pow) * pow;
+      };
+      const compact = (value) => {
+        if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
+        if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+        if (value >= 1e3) return `${Math.round(value / 1e3)}K`;
+        return `${Math.round(value)}`;
+      };
+      const tinyToken = (value) => {
+        value = Number(value) || 0;
+        if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
+        if (Math.abs(value) >= 1e6) return `${Math.round(value / 1e6)}M`;
+        if (Math.abs(value) >= 1e3) return `${Math.round(value / 1e3)}K`;
+        return `${Math.round(value)}`;
+      };
+      const smoothPath = (points) => {
+        if (!points.length) return "";
+        if (points.length < 2) return `M${points[0][0]} ${points[0][1]}`;
+        let d = `M${points[0][0]} ${points[0][1]}`;
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[i - 1] || points[i];
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const p3 = points[i + 2] || p2;
+          const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+          const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+          const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+          const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+          d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0]} ${p2[1]}`;
+        }
+        return d;
+      };
+      const sparkPath = (rows, key, width = 126, height = 42) => {
+        const values = (rows || []).map((row) => Number(row[key]) || 0);
+        if (!values.length) return "";
+        const maxValue = Math.max(1, ...values);
+        const pad = 2;
+        const points = values.map((value, index) => [
+          Math.round(pad + (width - pad * 2) * index / Math.max(1, values.length - 1)),
+          Math.round(height - pad - (height - pad * 2) * value / maxValue),
+        ]);
+        return smoothPath(points);
+      };
+      const setPath = (id, d) => {
+        const path = $(id);
+        if (path) path.setAttribute("d", d);
+      };
+
+      const seriesConfig = {
+        total: { label: "总量", color: "#1668f2", width: 3, area: "areaBlue" },
+        cached: { label: "缓存", color: "#13aaa0", width: 2.6, area: "areaTeal" },
+        output: { label: "输出", color: "#6fb1ff", width: 2.2 },
+        input: { label: "输入", color: "#2f80ff", width: 2.2 },
+        reasoning: { label: "推理", color: "#8b5cf6", width: 2.2 },
+      };
+
+      const trendRowsForMode = (rows) => {
+        if (uiState.trendMode !== "cumulative") return rows;
+        const running = { total: 0, cached: 0, output: 0, input: 0, reasoning: 0 };
+        return rows.map((row) => {
+          Object.keys(running).forEach((key) => {
+            running[key] += Number(row[key]) || 0;
+          });
+          return { ...row, ...running };
+        });
+      };
+
+      const renderTrendControls = () => {
+        document.querySelectorAll(".trend-mode").forEach((button) => {
+          button.classList.toggle("active", button.dataset.trendMode === uiState.trendMode);
+        });
+        document.querySelectorAll(".trend-scale").forEach((button) => {
+          button.classList.toggle("active", button.dataset.trendScale === uiState.trendScale);
+        });
+        document.querySelectorAll(".legend-item[data-series]").forEach((button) => {
+          const key = button.dataset.series;
+          const active = !!uiState.trendSeries[key];
+          const check = button.querySelector(".check");
+          const config = seriesConfig[key] || {};
+          button.classList.toggle("off", !active);
+          button.setAttribute("aria-pressed", String(active));
+          button.title = `${active ? "隐藏" : "显示"}${config.label || key}曲线`;
+          if (check) {
+            const tone = active
+              ? `${key === "cached" ? " teal" : ""}${key === "output" ? " sky" : ""}${key === "reasoning" ? " violet" : ""}`
+              : "";
+            check.className = `check${active ? " on" : ""}${tone}`;
+            check.innerHTML = active ? `<svg viewBox="0 0 16 16"><path d="m4 8 2.3 2.4L12 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : "";
+            if (active && key === "input") check.style.background = config.color || "";
+            else check.style.background = "";
+          }
+        });
+      };
+
+      const renderChart = () => {
+        const svg = $("trendChart");
+        const baseRows = trendRows || [];
+        if (!svg || baseRows.length < 2) return;
+        renderTrendControls();
+        const rows = trendRowsForMode(baseRows);
+        const activeKeys = Object.keys(seriesConfig).filter((key) => uiState.trendSeries[key]);
+        if (!activeKeys.length) return;
+        const primaryKey = activeKeys.includes("total") ? "total" : activeKeys[0];
+        const primaryConfig = seriesConfig[primaryKey];
+        const compactChart = window.innerWidth <= 480;
+        const maxY = niceMax(Math.max(...rows.flatMap((row) => activeKeys.map((key) => row[key] || 0))));
+        const logScale = uiState.trendScale === "log";
+        const logMax = Math.max(1, Math.log10(maxY + 1));
+        const left = compactChart ? 14 : 40;
+        const right = compactChart ? 990 : 985;
+        const top = 22, bottom = 194;
+        const x = (index) => Math.round(left + (right - left) * index / (rows.length - 1));
+        const y = (value) => {
+          const safeValue = Math.max(0, Number(value) || 0);
+          const ratio = logScale ? Math.log10(safeValue + 1) / logMax : safeValue / maxY;
+          return Math.round(bottom - (bottom - top) * ratio);
+        };
+        const series = (key) => rows.map((row, index) => [x(index), y(row[key] || 0)]);
+        const primary = series(primaryKey);
+        const peakIndex = uiState.trendMode === "cumulative"
+          ? rows.length - 1
+          : rows.reduce((best, row, index) => (row[primaryKey] || 0) > (rows[best]?.[primaryKey] || 0) ? index : best, 0);
+        const peakPoint = primary[peakIndex];
+        const area = (points) => `${smoothPath(points)} L${points[points.length - 1][0]} ${bottom} L${points[0][0]} ${bottom} Z`;
+        const yTicks = logScale
+          ? [maxY, maxY / 10, maxY / 100, maxY / 1000, maxY / 10000, 0].filter((tick, index, all) => index === all.length - 1 || tick >= 1)
+          : [1, .8, .6, .4, .2, 0].map((ratio) => Math.round(maxY * ratio));
+        const showXLabel = (index) => compactChart
+          ? index === 0 || index === peakIndex || index === rows.length - 1
+          : index % 2 === 0 || index === rows.length - 1;
+        const xLabels = rows.map((row, index) => showXLabel(index)
+          ? `<text x="${x(index) - 16}" y="211" class="chart-label">${esc(row.label)}</text>`
+          : ""
+        ).join("");
+        const gridLines = yTicks.filter((tick) => tick > 0).map((tick) => `<line x1="${left}" y1="${y(tick)}" x2="${right}" y2="${y(tick)}" class="grid-line"/>`).join("");
+        const yLabels = compactChart ? "" : yTicks.map((tick) => `<text x="${tick === 0 ? 22 : 2}" y="${Math.min(198, y(tick) + 4)}" class="chart-label">${compact(tick)}</text>`).join("");
+        const metaLabel = uiState.trendMode === "cumulative"
+          ? `累计 ${primaryConfig.label} ${fmt(rows[peakIndex][primaryKey] || 0)}`
+          : `峰值 ${primaryConfig.label} ${fmt(rows[peakIndex][primaryKey] || 0)} @ ${rows[peakIndex].label}`;
+        setText("chartMeta", metaLabel);
+        const tooltip = compactChart ? "" : `
+          <rect x="${Math.min(right - 150, Math.max(left + 8, peakPoint[0] - 16))}" y="${Math.max(0, peakPoint[1] - 34)}" width="146" height="34" rx="5" class="tooltip-box"/>
+          <text x="${Math.min(right - 137, Math.max(left + 21, peakPoint[0] - 3))}" y="${Math.max(21, peakPoint[1] - 13)}" fill="#1a2d49" font-size="13" font-weight="700">${esc(metaLabel)}</text>`;
+        const areaPath = `<path data-series-area="${primaryKey}" d="${area(primary)}" fill="url(#areaSelected)"/>`;
+        const linePaths = activeKeys.map((key) => {
+          const config = seriesConfig[key];
+          return `<path data-series="${key}" d="${smoothPath(series(key))}" fill="none" stroke="${config.color}" stroke-width="${config.width}" stroke-linecap="round"/>`;
+        }).join("");
+        svg.innerHTML = `
+          <defs>
+            <linearGradient id="areaSelected" x1="0" y1="0" x2="0" y2="1">
+              <stop stop-color="${primaryConfig.color}" stop-opacity=".16"/>
+              <stop offset="1" stop-color="${primaryConfig.color}" stop-opacity=".02"/>
+            </linearGradient>
+          </defs>
+          ${gridLines}
+          <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" class="axis-line"/>
+          ${yLabels}
+          ${areaPath}
+          ${linePaths}
+          <line x1="${peakPoint[0]}" y1="${peakPoint[1]}" x2="${peakPoint[0]}" y2="${bottom}" stroke="${primaryConfig.color}" stroke-width="1.5" stroke-dasharray="6 5"/>
+          <circle cx="${peakPoint[0]}" cy="${peakPoint[1]}" r="9" fill="#fff" stroke="${primaryConfig.color}" stroke-width="2"/>
+          <circle cx="${peakPoint[0]}" cy="${peakPoint[1]}" r="4.6" fill="${primaryConfig.color}"/>
+          ${tooltip}
+          ${xLabels}
+        `;
+      };
+
+      const renderSessions = () => {
+        const allRows = sessionRows || [];
+        const rows = uiState.sessionsExpanded ? allRows : allRows.slice(0, 5);
+        const head = `
+          <div class="session-head">
+            <span>会话</span><span>模型</span><span>Token 消耗</span><span>调用数</span><span>状态</span>
+          </div>`;
+        if (!allRows.length) {
+          $("sessionList").innerHTML = head + `<div class="list-empty">当前范围没有会话调用</div>`;
+          const toggle = $("toggleSessions");
+          if (toggle) toggle.hidden = true;
+          return;
+        }
+        $("sessionList").innerHTML = head + rows.map((row, index) => `
+          <div class="session-row">
+            <span class="rank-name"><i class="num ${index > 2 ? "muted" : ""}">${index + 1}</i><span class="rank-text">${esc(row.name)}</span></span>
+            <span class="pill">${esc(row.model)}</span>
+            <span class="mini-bar"><span style="width:${Math.max(4, row.percent || 0)}%"></span></span>
+            <span>${esc(row.requests)}</span>
+            <span class="status"></span>
+          </div>`).join("");
+        const toggle = $("toggleSessions");
+        if (toggle) {
+          toggle.hidden = allRows.length <= 5;
+          toggle.innerHTML = uiState.sessionsExpanded ? "收起会话 <span>↑</span>" : `展开会话 <span>${allRows.length}</span>`;
+        }
+      };
+
+      const renderModels = () => {
+        const colors = ["", "teal", "sky", "violet"];
+        const allRows = modelRows || [];
+        const rows = uiState.modelsExpanded ? allRows : allRows.slice(0, 4);
+        const head = `
+          <div class="session-head" style="grid-template-columns:120px 1fr 72px 62px">
+            <span>模型</span><span></span><span>Token 总量</span><span>首 Token 延迟</span>
+          </div>`;
+        if (!allRows.length) {
+          $("modelList").innerHTML = head + `<div class="list-empty">当前范围没有模型调用</div>`;
+          const toggle = $("toggleModels");
+          if (toggle) toggle.hidden = true;
+          return;
+        }
+        $("modelList").innerHTML = head + rows.map((row, index) => `
+          <div class="model-row">
+            <span class="name">${esc(row.name)}</span>
+            <span class="bar"><span class="${colors[index] || ""}" style="width:${Math.max(4, row.percent || 0)}%"></span></span>
+            <span class="tokens">${esc(row.tokensLabel)}</span>
+            <span class="latency ${row.latency > 6 ? "slow" : ""}">${esc(row.latencyLabel)}</span>
+          </div>`).join("");
+        const toggle = $("toggleModels");
+        if (toggle) {
+          toggle.hidden = allRows.length <= 4;
+          toggle.innerHTML = uiState.modelsExpanded ? "收起模型 <span>↑</span>" : `展开模型 <span>${allRows.length}</span>`;
+        }
+      };
+
+      const renderRisk = () => {
+        const rows = riskRows || [];
+        const labels = ["▣", "◷", "◌", "!"];
+        $("riskList").innerHTML = rows.map((row, index) => `
+          <div class="risk-row">
+            <span class="risk-icon">${labels[index] || "•"}</span><strong>${esc(row.name)}</strong>
+            <span class="track"><span class="fill ${index === 2 ? "teal" : ""}" style="display:block;width:${Math.max(2, Math.min(100, row.value || 0))}%"></span></span>
+            <span class="value">${esc(row.label)}</span><span class="percent">${pct(row.value)}</span>
+          </div>`).join("") + `
+          <div class="warning">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3 22 20H2L12 3Z" fill="currentColor"/>
+              <path d="M12 9v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="12" cy="17" r="1.2" fill="#fff"/>
+            </svg>
+            <div>
+              <strong>${esc(summary.peakTime || "--")} Token 峰值 ${esc(summary.peakLabel || "--")}</strong>
+              <span>${limits.rateLimitReachedType ? "已触发限流，请降低并发。" : "未触发限流，系统运行正常。"}</span>
+            </div>
+            <span>›</span>
+          </div>`;
+      };
+
+      const renderDistribution = () => {
+        const chart = $("distributionChart");
+        if (!chart) return;
+        document.querySelectorAll(".dist-mode").forEach((button) => {
+          button.classList.toggle("active", button.dataset.distMode === uiState.distributionMode);
+        });
+        const rows = distributionRows || [];
+        const tokenMode = uiState.distributionMode === "tokens";
+        const metricKey = tokenMode ? "total" : "requests";
+        const metricName = tokenMode ? "Token 消耗" : "调用";
+        const unitLabel = tokenMode ? "Token" : "次调用";
+        const totalValue = rows.reduce((sum, row) => sum + (row[metricKey] || 0), 0);
+        const totalLabel = tokenMode ? `${fmt(totalValue)} Token` : `${totalValue.toLocaleString()} 次`;
+        setText("rangeSummary", `${summary.rangeLabel || ""}${summary.rangeLabel ? " · " : ""}${totalLabel}`.replace(/^ · /, ""));
+        if (!rows.length || !totalValue) {
+          chart.style.setProperty("--bar-count", "1");
+          chart.innerHTML = `<div class="dist-empty">当前范围没有${metricName}记录</div>`;
+          return;
+        }
+        const maxValue = Math.max(1, ...rows.map((row) => row[metricKey] || 0));
+        chart.style.setProperty("--bar-count", String(Math.max(1, rows.length)));
+        const axisMax = niceMax(maxValue);
+        const yLabel = tokenMode ? tinyToken : compact;
+        const bars = rows.map((row) => {
+          const value = row[metricKey] || 0;
+          const label = tokenMode ? tinyToken(value) : String(value);
+          const detailLabel = tokenMode ? fmt(value) : String(value);
+          const height = value ? Math.max(3, Math.round(value / axisMax * 100)) : 0;
+          return `
+          <div class="dist-bar" title="${esc(row.label)} · ${esc(detailLabel)} ${unitLabel}" aria-label="${esc(row.label)} ${esc(detailLabel)} ${unitLabel}">
+            <span class="dist-bar-value">${esc(label)}</span>
+            <span class="dist-bar-fill ${tokenMode ? "token" : ""}" style="height:${height}%"></span>
+            <span class="dist-bar-label">${esc(row.label)}</span>
+          </div>`;
+        }).join("");
+        const xLabels = rows.map((row, index) => {
+          const showLabel = rows.length <= 8 || index === 0 || index === rows.length - 1 || index % 3 === 0;
+          return `<span class="dist-x-label">${showLabel ? esc(row.label) : ""}</span>`;
+        }).join("");
+        chart.innerHTML = `
+          <div class="dist-y-axis" aria-hidden="true">
+            <span>${esc(yLabel(axisMax))}</span>
+            <span></span>
+            <span>${esc(yLabel(axisMax / 2))}</span>
+            <span></span>
+            <span>0</span>
+          </div>
+          <div class="dist-plot">${bars}</div>
+          <div class="dist-axis-spacer" aria-hidden="true"></div>
+          <div class="dist-x-axis" aria-label="时间段">${xLabels}</div>`;
+      };
+
+      const renderSparks = () => {
+        setPath("requestSpark", sparkPath(distributionRows, "requests", 126, 42));
+        setPath("peakSpark", sparkPath(trendRows, "total", 126, 42));
+        setPath("cacheSpark", sparkPath(trendRows, "cached", 126, 36));
+      };
+
+      const renderAll = () => {
+        renderChart();
+        renderDistribution();
+        renderSparks();
+        renderSessions();
+        renderModels();
+        renderRisk();
+      };
+
+      const applyRange = (preset) => {
+        const custom = preset === "custom";
+        $("customRange").hidden = !custom;
+        document.querySelectorAll(".period-btn").forEach((button) => {
+          button.classList.toggle("active", button.dataset.range === preset);
+        });
+        uiState.sessionsExpanded = false;
+        uiState.modelsExpanded = false;
+        applyStats(computeStats(rangeForPreset(preset)));
+        renderAll();
+      };
+
+      const availableStart = new Date((data.availableRange || {}).start || Date.now() - 29 * DAY);
+      const availableEnd = new Date((data.availableRange || {}).end || Date.now());
+      if ($("startDate") && $("endDate")) {
+        $("startDate").min = ymd(availableStart);
+        $("startDate").max = ymd(availableEnd);
+        $("endDate").min = ymd(availableStart);
+        $("endDate").max = ymd(availableEnd);
+        $("startDate").value = ymd(localDayStart(availableEnd));
+        $("endDate").value = ymd(localDayStart(availableEnd));
+        $("startDate").addEventListener("change", () => applyRange("custom"));
+        $("endDate").addEventListener("change", () => applyRange("custom"));
+      }
+      document.querySelectorAll(".period-btn").forEach((button) => {
+        button.addEventListener("click", () => applyRange(button.dataset.range || "today"));
+      });
+      document.querySelectorAll(".trend-mode").forEach((button) => {
+        button.addEventListener("click", () => {
+          uiState.trendMode = button.dataset.trendMode || "bucket";
+          renderChart();
+        });
+      });
+      document.querySelectorAll(".trend-scale").forEach((button) => {
+        button.addEventListener("click", () => {
+          uiState.trendScale = button.dataset.trendScale || "linear";
+          renderChart();
+        });
+      });
+      document.querySelectorAll(".legend-item[data-series]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.series;
+          if (!key || !seriesConfig[key]) return;
+          const activeCount = Object.values(uiState.trendSeries).filter(Boolean).length;
+          if (uiState.trendSeries[key] && activeCount <= 1) return;
+          uiState.trendSeries[key] = !uiState.trendSeries[key];
+          renderChart();
+        });
+      });
+      document.querySelectorAll(".dist-mode").forEach((button) => {
+        button.addEventListener("click", () => {
+          uiState.distributionMode = button.dataset.distMode || "calls";
+          renderDistribution();
+        });
+      });
+      applyRange("today");
+
+      $("toggleSessions")?.addEventListener("click", () => {
+        uiState.sessionsExpanded = !uiState.sessionsExpanded;
+        renderSessions();
+      });
+
+      $("toggleModels")?.addEventListener("click", () => {
+        uiState.modelsExpanded = !uiState.modelsExpanded;
+        renderModels();
+      });
+
+      document.querySelectorAll(".tab[data-scroll-target]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = $(tab.dataset.scrollTarget);
+          if (!target) return;
+          document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+          tab.classList.add("active");
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+.DS_Store
+.env
+.env.*
+
+node_modules/
+__pycache__/
+*.py[cod]
+
+# Local Codex usage export. This can contain private project names,
+# session ids, timestamps, quota status, and usage patterns.
+data.js
+!data.sample.js
+
+# Local visual audit artifacts.
+*.png
+*.webp
+*.jpg
+*.jpeg
+
