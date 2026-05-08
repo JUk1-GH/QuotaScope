@@ -6,6 +6,8 @@ QuotaScope is a local-first dashboard for inspecting Codex usage from local sess
 
 The dashboard is a static HTML app: no backend, no account connection, and no hosted telemetry. Your real usage export stays local in `data.js`, which is intentionally ignored by git.
 
+The tracked project is intentionally small: the app is one HTML file, one Python exporter, a sample dataset, and one README screenshot. Local exports and visual-audit screenshots are ignored so they do not bloat the repository.
+
 ## Why
 
 Codex usage is easiest to understand when quota, token volume, model mix, and session-level hotspots are visible in one place. QuotaScope is built for that narrow job: open a local page, generate a local export, and see where usage went without shipping prompts or project data to another service.
