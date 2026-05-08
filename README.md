@@ -1,5 +1,7 @@
 # QuotaScope
 
+[![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003?style=flat-square)](https://linux.do)
+
 QuotaScope is a local-first dashboard for inspecting Codex usage from local session logs. It turns local Codex metadata into a clean desktop dashboard with token trends, quota and risk status, session rankings, model rankings, request distribution, cache hit rate, and estimated cost.
 
 ![QuotaScope dashboard](assets/dashboard-24h.png)
