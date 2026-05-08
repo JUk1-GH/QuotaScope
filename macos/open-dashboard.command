@@ -13,7 +13,7 @@ if [ -x ./codexscope-generator ] \
 fi
 
 if command -v go >/dev/null 2>&1; then
-  go build -o ./codexscope-generator generate_codex_data.go
+  go build -trimpath -ldflags="-s -w" -o ./codexscope-generator generate_codex_data.go
   ./codexscope-generator
 elif [ -x ./codexscope-generator ]; then
   ./codexscope-generator

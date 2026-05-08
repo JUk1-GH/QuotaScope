@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "generate": "go run generate_codex_data.go",
-    "build:generator": "go build -o codexscope-generator generate_codex_data.go",
+    "build:generator": "go build -trimpath -ldflags \"-s -w\" -o codexscope-generator generate_codex_data.go",
     "verify": "node verify_responsive.js"
   },
   "devDependencies": {

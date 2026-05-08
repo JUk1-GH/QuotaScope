@@ -20,14 +20,6 @@ import (
 
 const cacheVersion = 1
 
-var usageKeys = []string{
-	"input_tokens",
-	"cached_input_tokens",
-	"output_tokens",
-	"reasoning_output_tokens",
-	"total_tokens",
-}
-
 type Usage struct {
 	Input     int64 `json:"input_tokens"`
 	Cached    int64 `json:"cached_input_tokens"`
@@ -205,20 +197,6 @@ func projectName(cwd, fallback string) string {
 	return name
 }
 
-func getString(values map[string]any, key string) string {
-	if value, ok := values[key].(string); ok {
-		return value
-	}
-	return ""
-}
-
-func getMap(values map[string]any, key string) map[string]any {
-	if value, ok := values[key].(map[string]any); ok {
-		return value
-	}
-	return nil
-}
-
 func number(value any) (float64, bool) {
 	finite := func(v float64) bool {
 		return !math.IsNaN(v) && !math.IsInf(v, 0)
@@ -291,16 +269,6 @@ func usageSnapshotResult(value gjson.Result) (Usage, bool) {
 	return usage, hasValue
 }
 
-func usageToMap(usage Usage) map[string]int64 {
-	return map[string]int64{
-		"input_tokens":            usage.Input,
-		"cached_input_tokens":     usage.Cached,
-		"output_tokens":           usage.Output,
-		"reasoning_output_tokens": usage.Reasoning,
-		"total_tokens":            usage.Total,
-	}
-}
-
 func addUsage(dst *Usage, src Usage) {
 	dst.Input += src.Input
 	dst.Cached += src.Cached
@@ -346,16 +314,6 @@ func percentValue(value *float64) float64 {
 		return 0
 	}
 	return *value
-}
-
-func pct(value float64) string {
-	if value < 0 {
-		value = 0
-	}
-	if value > 100 {
-		value = 100
-	}
-	return fmt.Sprintf("%.0f%%", value)
 }
 
 func loadCache(cachePath string, days int) map[string]FileCache {
@@ -426,7 +384,6 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 		line, err := reader.ReadBytes('\n')
 		if len(line) > 0 {
 			obj := gjson.ParseBytes(line)
-			ts, hasTs := parseTime(obj.Get("timestamp").String())
 			topType := obj.Get("type").String()
 			payloadType := obj.Get("payload.type").String()
 
@@ -446,6 +403,7 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 					parsed.Cwd = cwd
 				}
 			case payloadType == "token_count":
+				ts, hasTs := parseTime(obj.Get("timestamp").String())
 				limitsResult := obj.Get("payload.rate_limits")
 				if limitsResult.Exists() && limitsResult.IsObject() {
 					if !hasLatestLimitsTs || (hasTs && !ts.Before(latestLimitsTs)) {
@@ -480,17 +438,23 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 						parsed.UsageEvents = append(parsed.UsageEvents, UsageEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Usage: usage, Model: parsed.Model})
 					}
 				}
-			case payloadType == "task_complete" && hasTs && !ts.Before(cutoff):
-				event := CompletionEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Model: parsed.Model}
-				if duration := obj.Get("payload.duration_ms"); duration.Exists() {
-					event.DurationMs = duration.Int()
+			case payloadType == "task_complete":
+				ts, hasTs := parseTime(obj.Get("timestamp").String())
+				if hasTs && !ts.Before(cutoff) {
+					event := CompletionEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Model: parsed.Model}
+					if duration := obj.Get("payload.duration_ms"); duration.Exists() {
+						event.DurationMs = duration.Int()
+					}
+					if ttfb := obj.Get("payload.time_to_first_token_ms"); ttfb.Exists() {
+						event.TTFBMs = ttfb.Int()
+					}
+					parsed.CompletionEvents = append(parsed.CompletionEvents, event)
 				}
-				if ttfb := obj.Get("payload.time_to_first_token_ms"); ttfb.Exists() {
-					event.TTFBMs = ttfb.Int()
+			case payloadType == "error" || payloadType == "turn_aborted":
+				ts, hasTs := parseTime(obj.Get("timestamp").String())
+				if hasTs && !ts.Before(cutoff) {
+					parsed.FailureEvents = append(parsed.FailureEvents, FailureEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Model: parsed.Model})
 				}
-				parsed.CompletionEvents = append(parsed.CompletionEvents, event)
-			case (payloadType == "error" || payloadType == "turn_aborted") && hasTs && !ts.Before(cutoff):
-				parsed.FailureEvents = append(parsed.FailureEvents, FailureEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Model: parsed.Model})
 			}
 		}
 		if err != nil {
@@ -598,7 +562,7 @@ func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, l
 }
 
 func collectSessionFiles(root string, cutoff time.Time) []sessionFileCandidate {
-	files := []sessionFileCandidate{}
+	files := make([]sessionFileCandidate, 0, 1024)
 	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil || entry == nil || entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
 			return nil
@@ -668,11 +632,23 @@ func parseSessionFiles(files []sessionFileCandidate, cutoff time.Time, cacheFile
 func loadSessions(root string, cutoff time.Time, cachePath string, days int) LoadedData {
 	loaded := LoadedData{}
 	cacheFiles := loadCache(cachePath, days)
-	nextCacheFiles := map[string]FileCache{}
 	var latestLimitsTs time.Time
 
 	files := collectSessionFiles(root, cutoff)
 	parsedFiles := parseSessionFiles(files, cutoff, cacheFiles)
+	nextCacheFiles := make(map[string]FileCache, len(parsedFiles))
+	usageEventCount := 0
+	ttfbEventCount := 0
+	failureEventCount := 0
+	for _, result := range parsedFiles {
+		usageEventCount += len(result.parsed.UsageEvents)
+		ttfbEventCount += len(result.parsed.CompletionEvents)
+		failureEventCount += len(result.parsed.FailureEvents)
+	}
+	loaded.Sessions = make([]SessionStats, 0, len(parsedFiles))
+	loaded.Events = make([]RuntimeEvent, 0, usageEventCount)
+	loaded.TTFBEvents = make([]RuntimeTTFBEvent, 0, ttfbEventCount)
+	loaded.FailureEvents = make([]RuntimeFailureEvent, 0, failureEventCount)
 	for _, result := range parsedFiles {
 		nextCacheFiles[result.file.path] = FileCache{MtimeNs: result.file.mtimeNs, Size: result.file.size, Parsed: result.parsed}
 		mergeSessionFile(result.parsed, cutoff, &loaded, &latestLimitsTs)

@@ -5,7 +5,7 @@ cd /d "%~dp0.."
 
 where go >nul 2>nul
 if %errorlevel%==0 (
-  go build -o codexscope-generator.exe generate_codex_data.go
+  go build -trimpath -ldflags "-s -w" -o codexscope-generator.exe generate_codex_data.go
   if errorlevel 1 goto generator_failed
   "%cd%\codexscope-generator.exe"
   goto open_dashboard
