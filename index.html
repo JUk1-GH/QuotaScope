@@ -3524,9 +3524,13 @@
       };
 
       const DAY = 24 * 60 * 60 * 1000;
-      const records = data.records || [];
-      const ttfbRecords = data.ttfbRecords || [];
-      const failureRecords = data.failureRecords || [];
+      const recordTime = (row) => Number(row?.[0]) || 0;
+      const sortByTime = (rows) => Array.isArray(rows)
+        ? [...rows].sort((a, b) => recordTime(a) - recordTime(b))
+        : [];
+      const records = sortByTime(data.records);
+      const ttfbRecords = sortByTime(data.ttfbRecords);
+      const failureRecords = sortByTime(data.failureRecords);
       const sessionsCatalog = data.sessionsCatalog || {};
       const limits = data.limits || {};
       let summary = data.summary || {};
@@ -3546,9 +3550,30 @@
       const EXCHANGE_RATE_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY?providers=ECB";
       const latestDataTime = Math.max(
         Number((data.availableRange || {}).end) || 0,
-        ...records.map((record) => Number(record[0]) || 0),
+        recordTime(records[records.length - 1]),
       ) || Date.now();
       const rangeNow = () => Math.min(Date.now(), latestDataTime);
+      const lowerBound = (rows, ts) => {
+        let lo = 0;
+        let hi = rows.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (recordTime(rows[mid]) < ts) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo;
+      };
+      const upperBound = (rows, ts) => {
+        let lo = 0;
+        let hi = rows.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (recordTime(rows[mid]) <= ts) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo;
+      };
+      const rowsInRange = (rows, range) => rows.slice(lowerBound(rows, range.start), upperBound(rows, range.end));
 
       const localDayStart = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const ymd = (date) => {
@@ -3615,7 +3640,15 @@
         { test: /gpt-5\.2[-_ ]?codex/i, input: 1.75, cached: 0.175, output: 14.00 },
         { test: /gpt-5\.1[-_ ]?codex|gpt-5[-_ ]?codex|gpt-5(?!\.\d)/i, input: 1.25, cached: 0.125, output: 10.00 },
       ];
-      const pricingForModel = (model) => MODEL_PRICING_USD_PER_M.find((item) => item.test.test(String(model || ""))) || null;
+      const pricingCache = new Map();
+      const recordCostCache = new WeakMap();
+      const pricingForModel = (model) => {
+        const key = String(model || "");
+        if (!pricingCache.has(key)) {
+          pricingCache.set(key, MODEL_PRICING_USD_PER_M.find((item) => item.test.test(key)) || null);
+        }
+        return pricingCache.get(key);
+      };
       const emptyCost = () => ({ input: 0, cached: 0, output: 0, reasoning: 0, total: 0, pricedTokens: 0, unpricedTokens: 0 });
       const addCost = (target, source) => {
         target.input += source.input || 0;
@@ -3628,6 +3661,8 @@
         return target;
       };
       const priceRecord = (record) => {
+        const cachedCost = recordCostCache.get(record);
+        if (cachedCost) return cachedCost;
         const model = record[2] || "unknown";
         const pricing = pricingForModel(model);
         const inputTokens = Math.max(0, Number(record[3]) || 0);
@@ -3640,14 +3675,16 @@
         const visibleOutput = Math.max(0, outputTokens - billedReasoning);
         const pricedTokens = billableInput + cachedTokens + visibleOutput + billedReasoning;
         if (!pricing) {
-          return { ...emptyCost(), unpricedTokens: pricedTokens };
+          const result = { ...emptyCost(), unpricedTokens: pricedTokens };
+          recordCostCache.set(record, result);
+          return result;
         }
         const multiplier = 1 / 1_000_000;
         const input = billableInput * pricing.input * multiplier;
         const cached = cachedTokens * pricing.cached * multiplier;
         const output = visibleOutput * pricing.output * multiplier;
         const reasoning = billedReasoning * pricing.output * multiplier;
-        return {
+        const result = {
           input,
           cached,
           output,
@@ -3656,6 +3693,8 @@
           pricedTokens,
           unpricedTokens: 0,
         };
+        recordCostCache.set(record, result);
+        return result;
       };
       const rangeForPreset = (preset) => {
         const now = rangeNow();
@@ -3697,9 +3736,9 @@
         return buckets.map((bucket) => ({ ...bucket, label: formatBucketLabel(bucket.start, multiDay), stepMinutes: step / 60000 }));
       };
       const computeStats = (range) => {
-        const filtered = records.filter((record) => record[0] >= range.start && record[0] <= range.end);
-        const failures = failureRecords.filter((record) => record[0] >= range.start && record[0] <= range.end);
-        const ttfb = ttfbRecords.filter((record) => record[0] >= range.start && record[0] <= range.end);
+        const filtered = rowsInRange(records, range);
+        const failures = rowsInRange(failureRecords, range);
+        const ttfb = rowsInRange(ttfbRecords, range);
         const totals = emptyUsage();
         const costs = emptyCost();
         const bySession = new Map();

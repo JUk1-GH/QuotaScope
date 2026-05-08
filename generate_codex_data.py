@@ -242,6 +242,9 @@ def build_payload(root: Path, days: int, trend_minutes: int) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=days)
     sessions, events, limits, ttfb_events, failure_events = load_sessions(root, cutoff)
+    events.sort(key=lambda event: event["ts"])
+    ttfb_events.sort(key=lambda event: event["ts"])
+    failure_events.sort(key=lambda event: event["ts"])
 
     totals = {key: 0 for key in USAGE_KEYS}
     for event in events:
