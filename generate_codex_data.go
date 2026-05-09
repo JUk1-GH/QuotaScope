@@ -18,8 +18,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-const cacheVersion = 3
-const minReadableCacheVersion = 3
+const cacheVersion = 4
+const minReadableCacheVersion = 4
 
 // Usage mirrors the token fields emitted by Codex token_count events.
 // Total is kept from the log when present; it is not recomputed from the
@@ -33,10 +33,12 @@ type Usage struct {
 }
 
 type UsageEvent struct {
-	Ts    string `json:"ts"`
-	Sid   string `json:"sid"`
-	Usage Usage  `json:"usage"`
-	Model string `json:"model"`
+	Ts          string `json:"ts"`
+	Sid         string `json:"sid"`
+	Usage       Usage  `json:"usage"`
+	Model       string `json:"model"`
+	Snapshot    Usage  `json:"snapshot,omitempty"`
+	HasSnapshot bool   `json:"hasSnapshot,omitempty"`
 }
 
 type CompletionEvent struct {
@@ -339,6 +341,11 @@ func usageDelta(current, previous Usage) (Usage, bool) {
 	return usage, usage.Input != 0 || usage.Cached != 0 || usage.Output != 0 || usage.Reasoning != 0 || usage.Total != 0
 }
 
+func usageSnapshotKey(sid, model string, usage Usage) string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d\x00%d\x00%d",
+		sid, model, usage.Input, usage.Cached, usage.Output, usage.Reasoning, usage.Total)
+}
+
 func max64(a, b int64) int64 {
 	if a > b {
 		return a
@@ -626,7 +633,12 @@ func parseSessionFileFrom(path string, cutoff time.Time, parsed ParsedFile, offs
 						usage, hasUsage = lastUsage, true
 					}
 					if hasUsage {
-						parsed.UsageEvents = append(parsed.UsageEvents, UsageEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Usage: usage, Model: parsed.Model})
+						event := UsageEvent{Ts: isoTime(ts, true), Sid: parsed.Sid, Usage: usage, Model: parsed.Model}
+						if hasTotal {
+							event.Snapshot = totalUsage
+							event.HasSnapshot = true
+						}
+						parsed.UsageEvents = append(parsed.UsageEvents, event)
 					}
 				}
 			case payloadType == "task_complete":
@@ -667,7 +679,7 @@ func markSeen(stat *SessionStats, ts time.Time) {
 	}
 }
 
-func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, latestLimitsTs *time.Time) {
+func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, latestLimitsTs *time.Time, seenUsageEvents map[string]struct{}) {
 	// Parsed files are per-log artifacts; LoadedData is the normalized runtime
 	// model used for totals, rankings, chart records, and latest quota status.
 	sid := parsed.Sid
@@ -685,9 +697,6 @@ func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, l
 		if !ok || ts.Before(cutoff) {
 			continue
 		}
-		markSeen(&stat, ts)
-		addUsage(&stat.Usage, event.Usage)
-		stat.Calls++
 		eventSid := event.Sid
 		if eventSid == "" {
 			eventSid = sid
@@ -696,6 +705,16 @@ func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, l
 		if eventModel == "" {
 			eventModel = model
 		}
+		if event.HasSnapshot {
+			key := usageSnapshotKey(eventSid, eventModel, event.Snapshot)
+			if _, ok := seenUsageEvents[key]; ok {
+				continue
+			}
+			seenUsageEvents[key] = struct{}{}
+		}
+		markSeen(&stat, ts)
+		addUsage(&stat.Usage, event.Usage)
+		stat.Calls++
 		loaded.Events = append(loaded.Events, RuntimeEvent{Ts: ts, Sid: eventSid, Usage: event.Usage, Model: eventModel})
 	}
 
@@ -849,9 +868,10 @@ func loadSessions(root string, cutoff time.Time, cachePath string, days int) Loa
 	loaded.Events = make([]RuntimeEvent, 0, usageEventCount)
 	loaded.TTFBEvents = make([]RuntimeTTFBEvent, 0, ttfbEventCount)
 	loaded.FailureEvents = make([]RuntimeFailureEvent, 0, failureEventCount)
+	seenUsageEvents := make(map[string]struct{}, usageEventCount)
 	for _, result := range parsedFiles {
 		nextCacheFiles[result.file.path] = FileCache{MtimeNs: result.file.mtimeNs, Size: result.file.size, Parsed: result.parsed}
-		mergeSessionFile(result.parsed, cutoff, &loaded, &latestLimitsTs)
+		mergeSessionFile(result.parsed, cutoff, &loaded, &latestLimitsTs, seenUsageEvents)
 	}
 
 	writeCache(cachePath, days, nextCacheFiles)

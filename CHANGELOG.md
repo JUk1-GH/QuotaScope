@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.7 - 2026-05-09
+
+- Deduplicated repeated `token_count` snapshots written into overlapping JSONL files.
+- Fixed inflated peak TPM values caused by duplicate session logs.
+- Bumped cache format so affected users regenerate clean local data once.
+- Added a regression test for repeated snapshot deduplication.
+
 ## v0.1.6 - 2026-05-09
 
 - Added a `历史` date filter for all exported local records.

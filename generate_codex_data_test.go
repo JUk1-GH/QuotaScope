@@ -65,3 +65,35 @@ func TestCacheCoversDaysHandlesAllHistory(t *testing.T) {
 		t.Fatal("30-day cache should cover a 7-day request")
 	}
 }
+
+func TestMergeSessionFileDeduplicatesRepeatedSnapshots(t *testing.T) {
+	tsA := "2026-05-09T10:00:00Z"
+	tsB := "2026-05-09T10:00:01Z"
+	snapshot := Usage{Input: 1000, Cached: 800, Output: 50, Reasoning: 10, Total: 1050}
+	event := UsageEvent{
+		Ts:          tsA,
+		Sid:         "session-1",
+		Model:       "gpt-test",
+		Usage:       Usage{Input: 1000, Cached: 800, Output: 50, Reasoning: 10, Total: 1050},
+		Snapshot:    snapshot,
+		HasSnapshot: true,
+	}
+	duplicate := event
+	duplicate.Ts = tsB
+
+	loaded := LoadedData{}
+	var latestLimitsTs time.Time
+	seen := map[string]struct{}{}
+	mergeSessionFile(ParsedFile{Sid: "session-1", Model: "gpt-test", UsageEvents: []UsageEvent{event}}, time.Time{}, &loaded, &latestLimitsTs, seen)
+	mergeSessionFile(ParsedFile{Sid: "session-1", Model: "gpt-test", UsageEvents: []UsageEvent{duplicate}}, time.Time{}, &loaded, &latestLimitsTs, seen)
+
+	if len(loaded.Events) != 1 {
+		t.Fatalf("expected 1 deduplicated usage event, got %d", len(loaded.Events))
+	}
+	if len(loaded.Sessions) != 1 {
+		t.Fatalf("expected duplicate session file to be skipped, got %d session rows", len(loaded.Sessions))
+	}
+	if loaded.Sessions[0].Calls != 1 || loaded.Sessions[0].Usage.Total != 1050 {
+		t.Fatalf("unexpected session totals: calls=%d total=%d", loaded.Sessions[0].Calls, loaded.Sessions[0].Usage.Total)
+	}
+}
