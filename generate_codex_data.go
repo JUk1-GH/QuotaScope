@@ -19,6 +19,7 @@ import (
 )
 
 const cacheVersion = 2
+const minReadableCacheVersion = 1
 
 // Usage mirrors the token fields emitted by Codex token_count events.
 // Total is kept from the log when present; it is not recomputed from the
@@ -329,7 +330,8 @@ func percentValue(value *float64) float64 {
 
 func loadCache(cachePath string, days int) map[string]FileCache {
 	// A cache generated for a shorter window cannot safely answer a longer one
-	// because older files may have been skipped.
+	// because older files may have been skipped. Older readable cache versions
+	// can still serve unchanged files; they just miss newer append-only metadata.
 	if cachePath == "" {
 		return map[string]FileCache{}
 	}
@@ -341,7 +343,7 @@ func loadCache(cachePath string, days int) map[string]FileCache {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return map[string]FileCache{}
 	}
-	if payload.Version != cacheVersion || payload.WindowDays < days || payload.Files == nil {
+	if payload.Version < minReadableCacheVersion || payload.Version > cacheVersion || payload.WindowDays < days || payload.Files == nil {
 		return map[string]FileCache{}
 	}
 	return payload.Files
