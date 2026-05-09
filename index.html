@@ -4334,7 +4334,7 @@
         const rows = uiState.sessionsExpanded ? rankedRows : rankedRows.slice(0, 5);
         const head = `
           <div class="session-head">
-            <span>会话</span><span>模型</span><span>${tokenMode ? "Token 消耗" : "调用量"}</span><span>${tokenMode ? "调用数" : "Token"}</span><span>状态</span>
+            <span>会话</span><span>模型</span><span>${tokenMode ? "Token 消耗" : "调用分布"}</span><span>${tokenMode ? "Token" : "调用数"}</span><span>状态</span>
           </div>`;
         if (!allRows.length) {
           $("sessionList").innerHTML = head + `<div class="list-empty">当前范围没有会话调用</div>`;
@@ -4347,7 +4347,7 @@
             <span class="rank-name"><i class="num ${index > 2 ? "muted" : ""}">${index + 1}</i><span class="rank-text">${esc(row.name)}</span></span>
             <span class="pill">${esc(row.model)}</span>
             <span class="mini-bar"><span style="width:${Math.max(4, tokenMode ? row.tokenPercent || 0 : row.requestPercent || 0)}%"></span></span>
-            <span>${tokenMode ? esc(row.requests) : esc(row.tokensLabel)}</span>
+            <span>${tokenMode ? esc(row.tokensLabel) : esc(row.requests)}</span>
             <span class="status"></span>
           </div>`).join("");
         const toggle = $("toggleSessions");
