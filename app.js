@@ -33,6 +33,8 @@
             el.textContent = value;
     };
     const DAY = 24 * 60 * 60 * 1000;
+    const HOUR = 60 * 60 * 1000;
+    const MINUTE = 60 * 1000;
     const RATE_WINDOW_MS = 60 * 1000;
     const recordTime = (row) => Number(row?.[0]) || 0;
     const sortByTime = (rows) => Array.isArray(rows)
@@ -102,11 +104,44 @@
             return null;
         return new Date(y, m - 1, d).getTime();
     };
-    const formatBucketLabel = (ts, multiDay) => {
+    const formatBucketLabel = (ts, stepMs, range) => {
         const date = new Date(ts);
-        if (multiDay)
+        const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+        if (stepMs >= DAY)
             return `${date.getMonth() + 1}/${date.getDate()}`;
-        return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+        if (range.end - range.start > DAY)
+            return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
+        return time;
+    };
+    const formatStepLabel = (stepMs) => {
+        if (stepMs < HOUR)
+            return `${Math.round(stepMs / MINUTE)}分钟/点`;
+        if (stepMs < DAY)
+            return `${Math.round(stepMs / HOUR)}小时/点`;
+        return `${Math.round(stepMs / DAY)}天/点`;
+    };
+    const chooseNiceStep = (duration, targetPoints) => {
+        const ideal = duration / targetPoints;
+        const steps = [
+            MINUTE,
+            2 * MINUTE,
+            5 * MINUTE,
+            10 * MINUTE,
+            15 * MINUTE,
+            30 * MINUTE,
+            HOUR,
+            2 * HOUR,
+            3 * HOUR,
+            6 * HOUR,
+            12 * HOUR,
+            DAY,
+            2 * DAY,
+            3 * DAY,
+            7 * DAY,
+            14 * DAY,
+            30 * DAY,
+        ];
+        return steps.find((step) => step >= ideal) || steps[steps.length - 1];
     };
     const formatPeakLabel = (ts, range) => {
         if (!Number.isFinite(ts))
@@ -261,21 +296,21 @@
         return { start, end, preset: "custom", label: formatRangeLabel(start, end, "custom") };
     };
     const emptyUsage = () => ({ input: 0, cached: 0, output: 0, reasoning: 0, total: 0, requests: 0, cost: 0 });
-    const buildBuckets = (filtered, range) => {
-        // Bucket count is adaptive: short ranges stay detailed, long ranges stay
-        // light enough for a static file opened directly in the browser.
+    const buildBuckets = (filtered, range, step) => {
+        // Use market-style fixed time grains: dense line anchors for trends,
+        // coarser buckets for bars. Bucket boundaries align to round clock times.
         const duration = Math.max(1, range.end - range.start);
-        const dayCount = duration / DAY;
-        const bucketCount = dayCount <= 1 ? 12 : dayCount <= 7 ? 7 : Math.min(16, Math.ceil(dayCount / 2));
-        const step = duration / bucketCount;
-        const multiDay = dayCount > 1.2;
+        const safeStep = Math.max(MINUTE, step || chooseNiceStep(duration, 180));
+        const start = Math.floor(range.start / safeStep) * safeStep;
+        const end = Math.ceil(range.end / safeStep) * safeStep;
+        const bucketCount = Math.max(1, Math.ceil((end - start) / safeStep));
         const buckets = Array.from({ length: bucketCount }, (_, index) => ({
             ...emptyUsage(),
-            start: range.start + index * step,
-            end: index === bucketCount - 1 ? range.end + 1 : range.start + (index + 1) * step,
+            start: start + index * safeStep,
+            end: index === bucketCount - 1 ? end + 1 : start + (index + 1) * safeStep,
         }));
         for (const record of filtered) {
-            const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((record[0] - range.start) / step)));
+            const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((record[0] - start) / safeStep)));
             const bucket = buckets[idx];
             bucket.input += record[3] || 0;
             bucket.cached += record[4] || 0;
@@ -285,7 +320,12 @@
             bucket.requests += 1;
             bucket.cost += priceRecord(record).total || 0;
         }
-        return buckets.map((bucket) => ({ ...bucket, label: formatBucketLabel(bucket.start, multiDay), stepMinutes: step / 60000 }));
+        return buckets.map((bucket) => ({
+            ...bucket,
+            label: formatBucketLabel(bucket.start, safeStep, range),
+            stepMinutes: safeStep / MINUTE,
+            stepLabel: formatStepLabel(safeStep),
+        }));
     };
     const computePeakRate = (filtered, range) => {
         // Sliding one-minute sum over the selected range, used for the TPM card.
@@ -351,7 +391,9 @@
             modelRow.latencyCount += 1;
             byModel.set(model, modelRow);
         }
-        const buckets = buildBuckets(filtered, range);
+        const duration = Math.max(1, range.end - range.start);
+        const trendBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 180));
+        const distributionBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 32));
         const peak = computePeakRate(filtered, range);
         const cacheHit = totals.input ? totals.cached / totals.input * 100 : 0;
         const failureRate = totals.requests ? failures.length / totals.requests * 100 : 0;
@@ -395,8 +437,8 @@
                 parts: costParts,
                 unpricedTokens: costs.unpricedTokens,
             },
-            trend: buckets,
-            distribution: buckets,
+            trend: trendBuckets,
+            distribution: distributionBuckets,
             sessions: sessions.map((row, index) => ({
                 ...row,
                 rank: index + 1,
@@ -654,9 +696,8 @@
         const yTicks = logScale
             ? [maxY, maxY / 10, maxY / 100, maxY / 1000, maxY / 10000, 0].filter((tick, index, all) => index === all.length - 1 || tick >= 1)
             : [1, .8, .6, .4, .2, 0].map((ratio) => Math.round(maxY * ratio));
-        const showXLabel = (index) => compactChart
-            ? index === 0 || index === peakIndex || index === rows.length - 1
-            : index % 2 === 0 || index === rows.length - 1;
+        const labelEvery = Math.max(1, Math.ceil(rows.length / (compactChart ? 3 : 7)));
+        const showXLabel = (index) => index === 0 || index === rows.length - 1 || index === peakIndex || index % labelEvery === 0;
         const xLabels = rows.map((row, index) => showXLabel(index)
             ? `<text x="${x(index) - 16}" y="211" class="chart-label">${esc(row.label)}</text>`
             : "").join("");
@@ -664,7 +705,8 @@
         const yLabels = compactChart ? "" : yTicks.map((tick) => `<text x="${tick === 0 ? 22 : 2}" y="${Math.min(198, y(tick) + 4)}" class="chart-label">${compact(tick)}</text>`).join("");
         const metaPrefix = uiState.trendMode === "interval" ? "分时峰值" : "累计";
         const metaLabel = `${metaPrefix} ${primaryConfig.label} ${fmt(rows[peakIndex][primaryKey] || 0)}`;
-        setText("chartMeta", metaLabel);
+        const stepLabel = baseRows[0]?.stepLabel ? ` · ${baseRows[0].stepLabel}` : "";
+        setText("chartMeta", `${metaLabel}${stepLabel}`);
         const tooltip = compactChart ? "" : `
       <rect x="${Math.min(right - 150, Math.max(left + 8, peakPoint[0] - 16))}" y="${Math.max(0, peakPoint[1] - 34)}" width="146" height="34" rx="5" class="tooltip-box"/>
       <text x="${Math.min(right - 137, Math.max(left + 21, peakPoint[0] - 3))}" y="${Math.max(21, peakPoint[1] - 13)}" fill="#1a2d49" font-size="13" font-weight="700">${esc(metaLabel)}</text>`;

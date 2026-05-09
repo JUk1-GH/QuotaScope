@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.8 - 2026-05-09
+
+- Switched trend chart anchors to market-style adaptive time grains.
+- Split trend buckets from distribution buckets so curves can be detailed while bars stay readable.
+- Added the active trend granularity to the chart header, such as `10分钟/点`.
+
 ## v0.1.7 - 2026-05-09
 
 - Deduplicated repeated `token_count` snapshots written into overlapping JSONL files.
