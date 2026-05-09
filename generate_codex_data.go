@@ -20,6 +20,9 @@ import (
 
 const cacheVersion = 1
 
+// Usage mirrors the token fields emitted by Codex token_count events.
+// Total is kept from the log when present; it is not recomputed from the
+// other fields because Codex may define totals differently across versions.
 type Usage struct {
 	Input     int64 `json:"input_tokens"`
 	Cached    int64 `json:"cached_input_tokens"`
@@ -49,6 +52,9 @@ type FailureEvent struct {
 	Model string `json:"model"`
 }
 
+// ParsedFile is the minimal metadata retained from one JSONL session file.
+// Prompt text, assistant text, tool output, and file contents are intentionally
+// not copied into this structure.
 type ParsedFile struct {
 	Sid              string            `json:"sid,omitempty"`
 	File             string            `json:"file,omitempty"`
@@ -278,6 +284,9 @@ func addUsage(dst *Usage, src Usage) {
 }
 
 func usageDelta(current, previous Usage) (Usage, bool) {
+	// Codex often reports cumulative total_token_usage. The dashboard needs
+	// per-event usage, so subtract the previous total and clamp negative values
+	// to tolerate log rewrites or counter resets.
 	usage := Usage{
 		Input:     max64(0, current.Input-previous.Input),
 		Cached:    max64(0, current.Cached-previous.Cached),
@@ -317,6 +326,8 @@ func percentValue(value *float64) float64 {
 }
 
 func loadCache(cachePath string, days int) map[string]FileCache {
+	// A cache generated for a shorter window cannot safely answer a longer one
+	// because older files may have been skipped.
 	if cachePath == "" {
 		return map[string]FileCache{}
 	}
@@ -335,6 +346,8 @@ func loadCache(cachePath string, days int) map[string]FileCache {
 }
 
 func writeCache(cachePath string, days int, files map[string]FileCache) {
+	// Write through a temporary file so an interrupted run does not leave a
+	// partially-written cache that would poison later hot starts.
 	if cachePath == "" {
 		return
 	}
@@ -367,6 +380,9 @@ func writeCache(cachePath string, days int, files map[string]FileCache) {
 }
 
 func parseSessionFile(path string, cutoff time.Time) ParsedFile {
+	// Parse JSONL incrementally instead of loading the whole file. Large Codex
+	// sessions can grow quickly, and only a small set of metadata fields is
+	// needed for the dashboard.
 	parsed := ParsedFile{Sid: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), File: path, Model: "unknown"}
 	file, err := os.Open(path)
 	if err != nil {
@@ -406,6 +422,8 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 				ts, hasTs := parseTime(obj.Get("timestamp").String())
 				limitsResult := obj.Get("payload.rate_limits")
 				if limitsResult.Exists() && limitsResult.IsObject() {
+					// Keep the newest rate-limit object found in local logs. This
+					// is useful quota telemetry, but it is not a live billing lookup.
 					if !hasLatestLimitsTs || (hasTs && !ts.Before(latestLimitsTs)) {
 						var limits map[string]any
 						if json.Unmarshal([]byte(limitsResult.Raw), &limits) == nil {
@@ -429,6 +447,8 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 				if hasTs && !ts.Before(cutoff) {
 					var usage Usage
 					hasUsage := false
+					// Prefer cumulative deltas when possible. Fall back to
+					// last_token_usage for the first event or older log shapes.
 					if hasTotal && hadPrev {
 						usage, hasUsage = usageDelta(totalUsage, prev)
 					} else if hasLast {
@@ -477,6 +497,8 @@ func markSeen(stat *SessionStats, ts time.Time) {
 }
 
 func mergeSessionFile(parsed ParsedFile, cutoff time.Time, loaded *LoadedData, latestLimitsTs *time.Time) {
+	// Parsed files are per-log artifacts; LoadedData is the normalized runtime
+	// model used for totals, rankings, chart records, and latest quota status.
 	sid := parsed.Sid
 	if sid == "" {
 		sid = strings.TrimSuffix(filepath.Base(parsed.File), filepath.Ext(parsed.File))
@@ -571,6 +593,8 @@ func collectSessionFiles(root string, cutoff time.Time) []sessionFileCandidate {
 		if err != nil {
 			return nil
 		}
+		// Use one day of slack around the event cutoff because file mtimes and
+		// event timestamps can diverge after syncs, copies, or manual moves.
 		if info.ModTime().UTC().Before(cutoff.Add(-24 * time.Hour)) {
 			return nil
 		}
@@ -586,6 +610,8 @@ func collectSessionFiles(root string, cutoff time.Time) []sessionFileCandidate {
 }
 
 func parseSessionFiles(files []sessionFileCandidate, cutoff time.Time, cacheFiles map[string]FileCache) []parsedSessionFile {
+	// Bound concurrency to keep launches fast without making the generator noisy
+	// on small laptops. Cached files skip JSON parsing when mtime and size match.
 	results := make([]parsedSessionFile, len(files))
 	if len(files) == 0 {
 		return results
@@ -659,6 +685,9 @@ func loadSessions(root string, cutoff time.Time, cachePath string, days int) Loa
 }
 
 func bucketEvents(events []RuntimeEvent, now time.Time, minutes int) []map[string]any {
+	// This precomputed trend is retained for compatibility with older exports.
+	// The current UI also keeps raw records so date filters can recompute buckets
+	// in the browser without rerunning the generator.
 	bucketCount := 11
 	end := now.Truncate(time.Minute)
 	start := end.Add(-time.Duration(minutes) * time.Minute)
@@ -705,6 +734,7 @@ func bucketEvents(events []RuntimeEvent, now time.Time, minutes int) []map[strin
 }
 
 func peakRate(events []RuntimeEvent) (int64, time.Time, bool) {
+	// Peak TPM is a sliding one-minute sum over chronological token events.
 	window := time.Minute
 	left := 0
 	var total int64
@@ -727,6 +757,9 @@ func peakRate(events []RuntimeEvent) (int64, time.Time, bool) {
 }
 
 func buildPayload(root string, days int, trendMinutes int, cachePath string) map[string]any {
+	// Build the public data contract consumed by index.html. Compact array rows
+	// are smaller to load than repeated object keys; catalogs retain labels for
+	// display without duplicating them in every event record.
 	now := time.Now().UTC()
 	cutoff := now.Add(-time.Duration(days) * 24 * time.Hour)
 	loaded := loadSessions(root, cutoff, cachePath, days)

@@ -73,6 +73,24 @@ go run .\generate_codex_data.go --root "$env:USERPROFILE\.codex\sessions"
 
 The generator writes `data.js` next to `index.html`. Once that file exists, the dashboard automatically uses your real local data instead of the bundled demo. `data.js` and `.codexscope-cache.json` may contain private project names, session ids, timestamps, usage patterns, and quota status, so both are excluded by `.gitignore`.
 
+## Project Structure
+
+- `index.html`: the static dashboard UI, including charts, filters, rankings, quota display, and cost estimation.
+- `generate_codex_data.go`: the local data generator. It scans Codex JSONL session logs, extracts usage metadata, and writes `data.js`.
+- `data.sample.js`: bundled demo data used when no local `data.js` exists.
+- `macos/open-dashboard.command`: macOS launcher that runs the generator and opens the dashboard.
+- `windows/open-dashboard.cmd`: Windows launcher that runs the generator and opens the dashboard.
+- `verify_responsive.js`: Playwright-based layout and interaction audit.
+- `assets/`: screenshots and static project assets.
+
+## Data Flow
+
+1. Codex writes local JSONL session logs under `~/.codex/sessions`.
+2. `generate_codex_data.go` scans recent `.jsonl` files and extracts only usage metadata: token counts, model names, session ids, timing, failures, and rate-limit metadata.
+3. The generator writes those records to `data.js` as `window.CODEXSCOPE_DATA`.
+4. `index.html` loads `data.sample.js` first and then `data.js`. If real local data exists, it overrides the sample data.
+5. Date filters, charts, rankings, quota status, and cost estimates are computed in the browser from that local record set.
+
 ## What Gets Displayed
 
 - **Token trend**: cumulative input, cached, output, and reasoning token usage over the selected range.

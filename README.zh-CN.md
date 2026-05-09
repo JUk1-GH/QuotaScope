@@ -75,6 +75,24 @@ go run .\generate_codex_data.go --root "$env:USERPROFILE\.codex\sessions"
 
 生成器会把真实数据写到 `index.html` 同目录下的 `data.js`。`data.js` 和 `.codexscope-cache.json` 都可能包含项目名、会话 id、时间戳、用量模式和额度状态，所以已经被 `.gitignore` 排除。
 
+## 项目结构
+
+- `index.html`：静态面板页面，包含图表、筛选、排行、额度状态和费用估算。
+- `generate_codex_data.go`：本地数据生成器，扫描 Codex JSONL 会话日志，提取用量元数据并写入 `data.js`。
+- `data.sample.js`：内置示例数据。没有本地 `data.js` 时，页面会先显示这份数据。
+- `macos/open-dashboard.command`：macOS 启动脚本，负责运行生成器并打开面板。
+- `windows/open-dashboard.cmd`：Windows 启动脚本，负责运行生成器并打开面板。
+- `verify_responsive.js`：基于 Playwright 的响应式布局和交互验证脚本。
+- `assets/`：截图和静态项目资源。
+
+## 数据流
+
+1. Codex 把本机会话日志写到 `~/.codex/sessions`。
+2. `generate_codex_data.go` 扫描最近的 `.jsonl` 文件，只提取用量元数据：Token 数、模型名、会话 id、耗时、失败状态和 rate-limit 元数据。
+3. 生成器把这些记录写入 `data.js`，暴露为 `window.CODEXSCOPE_DATA`。
+4. `index.html` 会先加载 `data.sample.js`，再加载 `data.js`。如果真实本地数据存在，它会覆盖示例数据。
+5. 日期筛选、趋势图、排行、额度状态和费用估算都在浏览器里基于这份本地记录计算。
+
 ## 页面里显示什么
 
 - **Token 消耗趋势**：所选时间范围内输入、缓存、输出、推理 Token 的累计变化。
