@@ -4,8 +4,10 @@ setlocal
 cd /d "%~dp0.."
 
 if exist "%cd%\codexscope-windows-amd64.exe" (
-  "%cd%\codexscope-windows-amd64.exe"
-  goto open_dashboard
+  if not exist "%cd%\generate_codex_data.go" (
+    "%cd%\codexscope-windows-amd64.exe"
+    goto open_dashboard
+  )
 )
 
 where go >nul 2>nul

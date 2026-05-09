@@ -7,7 +7,9 @@ if [ -f ./codexscope-darwin-arm64 ]; then
   chmod +x ./codexscope-darwin-arm64 2>/dev/null || true
 fi
 
-if [ -x ./codexscope-darwin-arm64 ] && ./codexscope-darwin-arm64; then
+if [ -x ./codexscope-darwin-arm64 ] \
+  && { [ ! -f generate_codex_data.go ] || { [ ./codexscope-darwin-arm64 -nt generate_codex_data.go ] && [ ./codexscope-darwin-arm64 -nt go.mod ] && [ ./codexscope-darwin-arm64 -nt go.sum ]; }; } \
+  && ./codexscope-darwin-arm64; then
   open index.html
   exit 0
 fi

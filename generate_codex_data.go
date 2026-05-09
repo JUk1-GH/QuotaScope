@@ -735,6 +735,26 @@ func loadSessions(root string, cutoff time.Time, cachePath string, days int) Loa
 	return loaded
 }
 
+func outputIsFresh(outPath string, files []sessionFileCandidate, cacheFiles map[string]FileCache) bool {
+	if outPath == "" || len(files) == 0 || len(cacheFiles) != len(files) {
+		return false
+	}
+	outInfo, err := os.Stat(outPath)
+	if err != nil || outInfo.IsDir() {
+		return false
+	}
+	if sourceInfo, err := os.Stat("generate_codex_data.go"); err == nil && outInfo.ModTime().Before(sourceInfo.ModTime()) {
+		return false
+	}
+	for _, file := range files {
+		cached, ok := cacheFiles[file.path]
+		if !ok || cached.MtimeNs != file.mtimeNs || cached.Size != file.size {
+			return false
+		}
+	}
+	return true
+}
+
 func bucketEvents(events []RuntimeEvent, now time.Time, minutes int) []map[string]any {
 	// This precomputed trend is retained for compatibility with older exports.
 	// The current UI also keeps raw records so date filters can recompute buckets
@@ -1146,6 +1166,16 @@ func main() {
 	cachePath := *cache
 	if *noCache {
 		cachePath = ""
+	}
+	if cachePath != "" {
+		now := time.Now().UTC()
+		cutoff := now.Add(-time.Duration(*days) * 24 * time.Hour)
+		files := collectSessionFiles(*root, cutoff)
+		cacheFiles := loadCache(cachePath, *days)
+		if outputIsFresh(*out, files, cacheFiles) {
+			fmt.Printf("%s is up to date (%d cached files)\n", *out, len(files))
+			return
+		}
 	}
 	payload := buildPayload(*root, *days, *trendMinutes, cachePath)
 	body, err := json.Marshal(payload)
