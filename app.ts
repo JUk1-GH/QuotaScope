@@ -46,9 +46,17 @@ interface Window {
   const MINUTE = 60 * 1000;
   const RATE_WINDOW_MS = 60 * 1000;
   const recordTime = (row) => Number(row?.[0]) || 0;
-  const sortByTime = (rows) => Array.isArray(rows)
-    ? [...rows].sort((a, b) => recordTime(a) - recordTime(b))
-    : [];
+  const isSortedByTime = (rows) => {
+    for (let i = 1; i < rows.length; i += 1) {
+      if (recordTime(rows[i - 1]) > recordTime(rows[i])) return false;
+    }
+    return true;
+  };
+  const sortByTime = (rows) => {
+    if (!Array.isArray(rows)) return [];
+    if (rows.length < 2 || isSortedByTime(rows)) return rows;
+    return [...rows].sort((a, b) => recordTime(a) - recordTime(b));
+  };
   const rawDataPath = data.rawDataPath || "data.raw.js";
   const getRawData = () => window.CODEXSCOPE_RAW_DATA || data;
   const getCatalog = (source = getRawData()) => source.catalog || data.catalog || {};
@@ -435,7 +443,7 @@ interface Window {
     return { start, end, preset: "custom", label: formatRangeLabel(start, end, "custom") };
   };
   const emptyUsage = () => ({ input: 0, cached: 0, output: 0, reasoning: 0, total: 0, requests: 0, cost: 0 });
-  const buildBuckets = (filtered, range, step) => {
+  const buildBuckets = (filtered, range, step, recordCosts = null) => {
     // Use market-style fixed time grains: dense line anchors for trends,
     // coarser buckets for bars. Bucket boundaries align to round clock times.
     const duration = Math.max(1, range.end - range.start);
@@ -448,7 +456,8 @@ interface Window {
       start: start + index * safeStep,
       end: index === bucketCount - 1 ? end + 1 : start + (index + 1) * safeStep,
     }));
-    for (const record of filtered) {
+    for (let index = 0; index < filtered.length; index += 1) {
+      const record = filtered[index];
       const idx = Math.max(0, Math.min(bucketCount - 1, Math.floor((record[0] - start) / safeStep)));
       const bucket = buckets[idx];
       bucket.input += record[3] || 0;
@@ -457,7 +466,7 @@ interface Window {
       bucket.reasoning += record[6] || 0;
       bucket.total += record[7] || 0;
       bucket.requests += 1;
-      bucket.cost += priceRecord(record).total || 0;
+      bucket.cost += (recordCosts?.[index] || priceRecord(record)).total || 0;
     }
     return buckets.map((bucket) => ({
       ...bucket,
@@ -504,8 +513,12 @@ interface Window {
     const costs = emptyCost();
     const bySession = new Map();
     const byModel = new Map();
-    for (const record of filtered) {
+    const sessionCatalog = getSessionsCatalog();
+    const recordCosts = new Array(filtered.length);
+    for (let index = 0; index < filtered.length; index += 1) {
+      const record = filtered[index];
       const recordCost = priceRecord(record);
+      recordCosts[index] = recordCost;
       addCost(costs, recordCost);
       totals.input += record[3] || 0;
       totals.cached += record[4] || 0;
@@ -515,7 +528,7 @@ interface Window {
       totals.requests += 1;
       const sid = record[1] || "unknown";
       const model = record[2] || "unknown";
-      const catalog = getSessionsCatalog()[sid] || {};
+      const catalog = sessionCatalog[sid] || {};
       const session = bySession.get(sid) || { name: catalog.name || `会话 ${sid.slice(-6)}`, model, tokens: 0, requests: 0, status: "ok" };
       session.tokens += record[7] || 0;
       session.requests += 1;
@@ -534,8 +547,8 @@ interface Window {
       byModel.set(model, modelRow);
     }
     const duration = Math.max(1, range.end - range.start);
-    const trendBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 180));
-    const distributionBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 32));
+    const trendBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 180), recordCosts);
+    const distributionBuckets = buildBuckets(filtered, range, chooseNiceStep(duration, 32), recordCosts);
     const peak = computePeakRate(filtered, range);
     const cacheHit = totals.input ? totals.cached / totals.input * 100 : 0;
     const { successRate, failureRate } = successFailureRates(totals.requests, failures.length);
@@ -809,16 +822,17 @@ interface Window {
     input: { label: "输入", color: "#2f80ff", width: 2.2 },
     reasoning: { label: "推理", color: "#8b5cf6", width: 2.2 },
   };
+  const trendValueKeys = ["total", "cached", "output", "input", "reasoning"];
 
   const trendRowsForMode = (rows) => {
     // Interval mode uses each bucket as-is. Cumulative mode turns the same
     // buckets into running totals so both modes share one data source.
     if (uiState.trendMode === "interval") {
-      return rows.map((row) => ({ ...row }));
+      return rows;
     }
     const running = { total: 0, cached: 0, output: 0, input: 0, reasoning: 0 };
     return rows.map((row) => {
-      Object.keys(running).forEach((key) => {
+      trendValueKeys.forEach((key) => {
         running[key] += Number(row[key]) || 0;
       });
       return { ...row, ...running };
@@ -866,7 +880,7 @@ interface Window {
       return;
     }
     const rows = trendRowsForMode(baseRows);
-    const activeKeys = Object.keys(seriesConfig).filter((key) => uiState.trendSeries[key]);
+    const activeKeys = trendValueKeys.filter((key) => uiState.trendSeries[key]);
     if (!activeKeys.length) return;
     const primaryKey = activeKeys.includes("total") ? "total" : activeKeys[0];
     const primaryConfig = seriesConfig[primaryKey];

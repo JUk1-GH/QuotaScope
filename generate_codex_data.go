@@ -558,7 +558,7 @@ func sourceNewerThan(ts time.Time) bool {
 	return false
 }
 
-func fileSignature(root string, out string, rawOut string, days int, trendMinutes int, files []sessionFileCandidate) string {
+func fileSignature(root string, out string, rawOut string, days int, files []sessionFileCandidate) string {
 	var totalSize int64
 	var maxMtimeNs int64
 	for _, file := range files {
@@ -567,8 +567,8 @@ func fileSignature(root string, out string, rawOut string, days int, trendMinute
 			maxMtimeNs = file.mtimeNs
 		}
 	}
-	return fmt.Sprintf("v=%d\nroot=%s\nout=%s\nraw=%s\ndays=%d\ntrend=%d\nfiles=%d:%d:%d\n",
-		cacheVersion, root, out, rawOut, days, trendMinutes, len(files), totalSize, maxMtimeNs)
+	return fmt.Sprintf("v=%d\nroot=%s\nout=%s\nraw=%s\ndays=%d\nfiles=%d:%d:%d\n",
+		cacheVersion, root, out, rawOut, days, len(files), totalSize, maxMtimeNs)
 }
 
 func outputIsStampedFresh(outPath string, rawOutPath string, files []sessionFileCandidate, stampPath string, expectedSignature string) bool {
@@ -1040,10 +1040,7 @@ func outputIsFresh(outPath string, rawOutPath string, files []sessionFileCandida
 	if err != nil || rawInfo.IsDir() || !rawOutputHasCurrentSchema(rawOutPath) {
 		return false
 	}
-	if sourceInfo, err := os.Stat("generate_codex_data.go"); err == nil && outInfo.ModTime().Before(sourceInfo.ModTime()) {
-		return false
-	}
-	if sourceInfo, err := os.Stat("generate_codex_data.go"); err == nil && rawInfo.ModTime().Before(sourceInfo.ModTime()) {
+	if sourceNewerThan(outInfo.ModTime()) || sourceNewerThan(rawInfo.ModTime()) {
 		return false
 	}
 	for _, file := range files {
@@ -1659,7 +1656,7 @@ func buildView(key, label string, start, end time.Time, loaded LoadedData, sessi
 	}
 }
 
-func buildPayload(root string, days int, trendMinutes int, cachePath string, cacheFiles map[string]FileCache) map[string]any {
+func buildPayload(root string, days int, cachePath string, cacheFiles map[string]FileCache) map[string]any {
 	// Build the public data contract consumed by index.html. Compact array rows
 	// are smaller to load than repeated object keys; catalogs retain labels for
 	// display without duplicating them in every event record.
@@ -2042,7 +2039,7 @@ func main() {
 	out := flag.String("out", "data.js", "output data.js path")
 	rawOut := flag.String("raw-out", "", "raw event sidecar path; defaults to data.raw.js next to the main output")
 	days := flag.Int("days", 0, "number of days to include; 0 means all history")
-	trendMinutes := flag.Int("trend-minutes", 300, "minutes in the summary trend")
+	flag.Int("trend-minutes", 300, "deprecated no-op; preset views choose adaptive trend buckets")
 	cache := flag.String("cache", ".codexscope-cache.json", "local cache path")
 	noCache := flag.Bool("no-cache", false, "disable local cache")
 	flag.Parse()
@@ -2062,7 +2059,7 @@ func main() {
 		now := time.Now().UTC()
 		cutoff := cutoffForDays(*days, now)
 		files := collectSessionFiles(*root, cutoff)
-		stampSignature = fileSignature(*root, *out, rawOutPath, *days, *trendMinutes, files)
+		stampSignature = fileSignature(*root, *out, rawOutPath, *days, files)
 		if outputIsStampedFresh(*out, rawOutPath, files, stampPath, stampSignature) {
 			fmt.Printf("%s is up to date (%d files)\n", *out, len(files))
 			return
@@ -2074,7 +2071,7 @@ func main() {
 			return
 		}
 	}
-	payload := buildPayload(*root, *days, *trendMinutes, cachePath, cacheFiles)
+	payload := buildPayload(*root, *days, cachePath, cacheFiles)
 	summary := payloadLogSummary(payload)
 	rawPayload := buildRawPayload(payload)
 	prepareMainPayloadForExport(payload, *out, rawOutPath)

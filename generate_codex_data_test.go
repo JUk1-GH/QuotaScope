@@ -291,7 +291,7 @@ func TestLoadedDataBoundsIncludesFailureOnlyEvents(t *testing.T) {
 }
 
 func TestBuildPayloadOmitsLegacyDuplicateViews(t *testing.T) {
-	payload := buildPayload(t.TempDir(), 0, 300, "", nil)
+	payload := buildPayload(t.TempDir(), 0, "", nil)
 	for _, key := range []string{"summary", "trend", "sessions", "models", "risk", "coverage"} {
 		if _, ok := payload[key]; ok {
 			t.Fatalf("%s should be supplied by precomputed views, not duplicated at top level", key)
@@ -299,6 +299,32 @@ func TestBuildPayloadOmitsLegacyDuplicateViews(t *testing.T) {
 	}
 	if views, ok := payload["views"].(map[string]any); !ok || len(views) == 0 {
 		t.Fatalf("payload should keep precomputed views, got %T", payload["views"])
+	}
+}
+
+func TestOutputIsFreshRejectsOutputsOlderThanGeneratorSources(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "data.js")
+	rawOut := filepath.Join(dir, "data.raw.js")
+	if err := os.WriteFile(out, []byte(`window.CODEXSCOPE_DATA = {"schemaVersion":2,"rawDataPath":"data.raw.js","pricingRules":[],"views":{}};`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rawOut, []byte(`window.CODEXSCOPE_RAW_DATA = {"schemaVersion":2,"rawSchemaVersion":1,"catalog":{},"recordBase":1,"recordsV2":[]};`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(out, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(rawOut, old, old); err != nil {
+		t.Fatal(err)
+	}
+	files := []sessionFileCandidate{{path: filepath.Join(dir, "session.jsonl"), mtimeNs: old.UnixNano(), size: 1}}
+	cacheFiles := map[string]FileCache{
+		files[0].path: {MtimeNs: files[0].mtimeNs, Size: files[0].size},
+	}
+	if outputIsFresh(out, rawOut, files, cacheFiles) {
+		t.Fatal("outputs older than generator sources should not be treated as fresh")
 	}
 }
 
