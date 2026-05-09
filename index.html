@@ -1249,7 +1249,7 @@
       top: calc(100% + 10px);
       right: -2px;
       z-index: 30;
-      width: min(342px, calc(100vw - 32px));
+      width: min(430px, calc(100vw - 32px));
       padding: 12px 13px;
       border: 1px solid #cfe0f5;
       border-radius: 10px;
@@ -1291,6 +1291,52 @@
       color: #0f2342;
       font-size: 13px;
       margin-bottom: 5px;
+    }
+
+    .price-table {
+      width: 100%;
+      margin-top: 8px;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      border: 1px solid #dbe7f5;
+      border-radius: 8px;
+    }
+
+    .price-table th,
+    .price-table td {
+      padding: 6px 7px;
+      border-bottom: 1px solid #e8f0fa;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .price-table th:first-child,
+    .price-table td:first-child {
+      text-align: left;
+    }
+
+    .price-table th {
+      background: #f4f8ff;
+      color: #5b6f8a;
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .price-table td {
+      color: #183154;
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .price-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .price-note {
+      margin-top: 8px;
+      color: #5f7189;
+      font-size: 11px;
     }
 
     .cost-popover span + span {
@@ -3609,9 +3655,20 @@
                   <span class="cost-help-wrap">
                     <button id="costHelp" class="cost-help" type="button" aria-label="费用估算说明" aria-expanded="false" aria-describedby="costHelpTip">i</button>
                     <span id="costHelpTip" class="cost-popover" role="tooltip">
-                      <b>费用估算说明</b>
-                      <span>按 OpenAI 官方价格页的标准美元价格估算，输入、缓存输入、输出按每 100 万 token 计价。</span>
-                      <span>这里只读取本地 Codex token 日志，不读取官方账单；ChatGPT/Codex 套餐额度和实际账单以官方页面为准。</span>
+                      <b>官方价格表 · USD / 1M tokens</b>
+                      <table class="price-table" aria-label="官方美元价格表">
+                        <thead>
+                          <tr><th>模型</th><th>输入</th><th>缓存</th><th>输出</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr><td>gpt-5.5</td><td>$5.00</td><td>$0.50</td><td>$30.00</td></tr>
+                          <tr><td>gpt-5.4</td><td>$2.50</td><td>$0.25</td><td>$15.00</td></tr>
+                          <tr><td>gpt-5.4 mini</td><td>$0.75</td><td>$0.075</td><td>$4.50</td></tr>
+                          <tr><td>gpt-5.3 / 5.2 codex</td><td>$1.75</td><td>$0.175</td><td>$14.00</td></tr>
+                          <tr><td>gpt-5 / 5.1 codex</td><td>$1.25</td><td>$0.125</td><td>$10.00</td></tr>
+                        </tbody>
+                      </table>
+                      <span class="price-note">推理 token 按输出价估算；这里只读本地日志，实际账单和套餐额度以官方为准。</span>
                       <a href="https://openai.com/api/pricing/" target="_blank" rel="noreferrer">打开 OpenAI 价格页</a>
                     </span>
                   </span>
