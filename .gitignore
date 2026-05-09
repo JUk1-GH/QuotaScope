@@ -11,6 +11,7 @@ __pycache__/
 data.js
 !data.sample.js
 .codexscope-cache.json
+.codexscope-cache.json.stamp
 codexscope-generator
 codexscope-generator.exe
 codexscope-darwin-arm64

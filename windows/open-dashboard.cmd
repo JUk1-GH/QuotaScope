@@ -1,7 +1,8 @@
 @echo off
 setlocal
 
-cd /d "%~dp0.."
+cd /d "%~dp0"
+if not exist "%cd%\index.html" cd /d "%~dp0.."
 
 if exist "%cd%\codexscope-windows-amd64.exe" (
   if not exist "%cd%\generate_codex_data.go" (

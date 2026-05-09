@@ -383,6 +383,71 @@ func writeCache(cachePath string, days int, files map[string]FileCache) {
 	}
 }
 
+func cacheStampPath(cachePath string) string {
+	if cachePath == "" {
+		return ""
+	}
+	return cachePath + ".stamp"
+}
+
+func sourceNewerThan(ts time.Time) bool {
+	for _, path := range []string{"generate_codex_data.go", "go.mod", "go.sum"} {
+		info, err := os.Stat(path)
+		if err == nil && info.ModTime().After(ts) {
+			return true
+		}
+	}
+	return false
+}
+
+func fileSignature(root string, out string, days int, trendMinutes int, files []sessionFileCandidate) string {
+	var totalSize int64
+	var maxMtimeNs int64
+	for _, file := range files {
+		totalSize += file.size
+		if file.mtimeNs > maxMtimeNs {
+			maxMtimeNs = file.mtimeNs
+		}
+	}
+	return fmt.Sprintf("v=%d\nroot=%s\nout=%s\ndays=%d\ntrend=%d\nfiles=%d:%d:%d\n",
+		cacheVersion, root, out, days, trendMinutes, len(files), totalSize, maxMtimeNs)
+}
+
+func outputIsStampedFresh(outPath string, files []sessionFileCandidate, stampPath string, expectedSignature string) bool {
+	if outPath == "" || stampPath == "" {
+		return false
+	}
+	outInfo, err := os.Stat(outPath)
+	if err != nil || outInfo.IsDir() || sourceNewerThan(outInfo.ModTime()) {
+		return false
+	}
+	stampInfo, err := os.Stat(stampPath)
+	if err != nil || stampInfo.IsDir() || stampInfo.ModTime().Before(outInfo.ModTime()) {
+		return false
+	}
+	body, err := os.ReadFile(stampPath)
+	if err != nil {
+		return false
+	}
+	if string(body) != expectedSignature {
+		return false
+	}
+	outMtime := outInfo.ModTime()
+	for _, file := range files {
+		if time.Unix(0, file.mtimeNs).After(outMtime) {
+			return false
+		}
+	}
+	return true
+}
+
+func writeRunStamp(stampPath string, signature string) {
+	if stampPath == "" {
+		return
+	}
+	_ = os.WriteFile(stampPath, []byte(signature), 0o644)
+}
+
 func canAppendFrom(path string, offset int64) bool {
 	if offset <= 0 {
 		return false
@@ -1167,13 +1232,21 @@ func main() {
 	if *noCache {
 		cachePath = ""
 	}
+	stampPath := cacheStampPath(cachePath)
+	stampSignature := ""
 	if cachePath != "" {
 		now := time.Now().UTC()
 		cutoff := now.Add(-time.Duration(*days) * 24 * time.Hour)
 		files := collectSessionFiles(*root, cutoff)
+		stampSignature = fileSignature(*root, *out, *days, *trendMinutes, files)
+		if outputIsStampedFresh(*out, files, stampPath, stampSignature) {
+			fmt.Printf("%s is up to date (%d files)\n", *out, len(files))
+			return
+		}
 		cacheFiles := loadCache(cachePath, *days)
 		if outputIsFresh(*out, files, cacheFiles) {
 			fmt.Printf("%s is up to date (%d cached files)\n", *out, len(files))
+			writeRunStamp(stampPath, stampSignature)
 			return
 		}
 	}
@@ -1189,6 +1262,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to write %s: %v\n", *out, err)
 		os.Exit(1)
 	}
+	writeRunStamp(stampPath, stampSignature)
 	summary := payload["summary"].(map[string]any)
 	fmt.Printf("wrote %s (%s requests, %s tokens)\n", *out, summary["requestsLabel"], summary["totalTokensLabel"])
 }

@@ -1,7 +1,10 @@
 #!/bin/zsh
 set -e
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")"
+if [ ! -f index.html ]; then
+  cd ..
+fi
 
 if [ -f ./codexscope-darwin-arm64 ]; then
   chmod +x ./codexscope-darwin-arm64 2>/dev/null || true

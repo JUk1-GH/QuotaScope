@@ -29,13 +29,15 @@ Codex usage is easiest to understand when quota, token volume, model mix, and se
 
 Download the project and open `index.html` directly in a browser. It will show bundled sample data immediately, so you can preview the dashboard without running anything else.
 
-To view your real local Codex usage, use the launcher for your system:
+To view your real local Codex usage, normal users should download the platform package from GitHub Releases:
 
-- **macOS**: double-click `macos/open-dashboard.command`
-- **Windows**: double-click `windows/open-dashboard.cmd`
+- **macOS**: download `CodexScope-mac.zip`, unzip it, then double-click `open-dashboard.command` in the extracted folder
+- **Windows**: download `CodexScope-windows.zip`, unzip it, then double-click `open-dashboard.cmd` in the extracted folder
 
 Release zips include a prebuilt generator, so normal users do not need to install Go. The launcher generates `data.js` from your local Codex logs and then opens `index.html`. Source checkouts can still fall back to `go build` when the prebuilt generator is absent.
 Subsequent runs reuse a local `.codexscope-cache.json` file and only rescan changed session logs, so repeated launches should be much faster.
+
+Note: GitHub's automatic **Source code (zip)** asset is for developers, not the recommended user download. It may require Go or local compilation. Prefer `CodexScope-mac.zip` / `CodexScope-windows.zip`.
 
 If macOS says it cannot verify `open-dashboard.command`, open **System Settings → Privacy & Security**, find the blocked `open-dashboard.command` message, and click **Open Anyway**. You can also right-click the file and choose **Open**.
 
@@ -129,8 +131,8 @@ npm run release:local
 
 This writes:
 
-- `dist/CodexScope-mac.zip` with `codexscope-darwin-arm64` and the macOS launcher
-- `dist/CodexScope-windows.zip` with `codexscope-windows-amd64.exe` and the Windows launcher
+- `dist/CodexScope-mac.zip` with root-level `open-dashboard.command` and prebuilt `codexscope-darwin-arm64`
+- `dist/CodexScope-windows.zip` with root-level `open-dashboard.cmd` and prebuilt `codexscope-windows-amd64.exe`
 
 The GitHub Actions release workflow builds the same zip files for tags named `v*`.
 
