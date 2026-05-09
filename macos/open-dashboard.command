@@ -3,6 +3,15 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+if [ -f ./codexscope-darwin-arm64 ]; then
+  chmod +x ./codexscope-darwin-arm64 2>/dev/null || true
+fi
+
+if [ -x ./codexscope-darwin-arm64 ] && ./codexscope-darwin-arm64; then
+  open index.html
+  exit 0
+fi
+
 if [ -x ./codexscope-generator ] \
   && [ ./codexscope-generator -nt generate_codex_data.go ] \
   && [ ./codexscope-generator -nt go.mod ] \
@@ -15,10 +24,9 @@ fi
 if command -v go >/dev/null 2>&1; then
   go build -trimpath -ldflags="-s -w" -o ./codexscope-generator generate_codex_data.go
   ./codexscope-generator
-elif [ -x ./codexscope-generator ]; then
-  ./codexscope-generator
 else
-  echo "Go was not found. Please install Go first."
+  echo "No prebuilt generator was found, and Go is not installed."
+  echo "Please download CodexScope-mac.zip from the GitHub Releases page."
   exit 1
 fi
 

@@ -18,7 +18,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-const cacheVersion = 1
+const cacheVersion = 2
 
 // Usage mirrors the token fields emitted by Codex token_count events.
 // Total is kept from the log when present; it is not recomputed from the
@@ -65,6 +65,8 @@ type ParsedFile struct {
 	FailureEvents    []FailureEvent    `json:"failureEvents,omitempty"`
 	LatestLimits     map[string]any    `json:"latestLimits,omitempty"`
 	LatestLimitsTs   string            `json:"latestLimitsTs,omitempty"`
+	LastTotal        Usage             `json:"lastTotal,omitempty"`
+	HasLastTotal     bool              `json:"hasLastTotal,omitempty"`
 }
 
 type FileCache struct {
@@ -379,22 +381,65 @@ func writeCache(cachePath string, days int, files map[string]FileCache) {
 	}
 }
 
+func canAppendFrom(path string, offset int64) bool {
+	if offset <= 0 {
+		return false
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	if _, err := file.Seek(offset-1, io.SeekStart); err != nil {
+		return false
+	}
+	var lastByte [1]byte
+	n, err := file.Read(lastByte[:])
+	return err == nil && n == 1 && lastByte[0] == '\n'
+}
+
 func parseSessionFile(path string, cutoff time.Time) ParsedFile {
+	parsed := ParsedFile{Sid: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), File: path, Model: "unknown"}
+	return parseSessionFileFrom(path, cutoff, parsed, 0)
+}
+
+func parseSessionFileAppend(path string, cutoff time.Time, cached ParsedFile, offset int64) ParsedFile {
+	if cached.Sid == "" {
+		cached.Sid = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	}
+	if cached.File == "" {
+		cached.File = path
+	}
+	if cached.Model == "" {
+		cached.Model = "unknown"
+	}
+	return parseSessionFileFrom(path, cutoff, cached, offset)
+}
+
+func parseSessionFileFrom(path string, cutoff time.Time, parsed ParsedFile, offset int64) ParsedFile {
 	// Parse JSONL incrementally instead of loading the whole file. Large Codex
 	// sessions can grow quickly, and only a small set of metadata fields is
 	// needed for the dashboard.
-	parsed := ParsedFile{Sid: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), File: path, Model: "unknown"}
 	file, err := os.Open(path)
 	if err != nil {
 		return parsed
 	}
 	defer file.Close()
+	if offset > 0 {
+		if _, err := file.Seek(offset, io.SeekStart); err != nil {
+			return parsed
+		}
+	}
 
 	reader := bufio.NewReaderSize(file, 1024*1024)
-	var prevTotal Usage
-	hasPrevTotal := false
+	prevTotal := parsed.LastTotal
+	hasPrevTotal := parsed.HasLastTotal
 	var latestLimitsTs time.Time
 	hasLatestLimitsTs := false
+	if ts, ok := parseTime(parsed.LatestLimitsTs); ok {
+		latestLimitsTs = ts
+		hasLatestLimitsTs = true
+	}
 
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -443,6 +488,8 @@ func parseSessionFile(path string, cutoff time.Time) ParsedFile {
 				if hasTotal {
 					prevTotal = totalUsage
 					hasPrevTotal = true
+					parsed.LastTotal = totalUsage
+					parsed.HasLastTotal = true
 				}
 				if hasTs && !ts.Before(cutoff) {
 					var usage Usage
@@ -640,6 +687,8 @@ func parseSessionFiles(files []sessionFileCandidate, cutoff time.Time, cacheFile
 				var parsed ParsedFile
 				if ok && cached.MtimeNs == file.mtimeNs && cached.Size == file.size {
 					parsed = cached.Parsed
+				} else if ok && file.size > cached.Size && cached.Parsed.HasLastTotal && canAppendFrom(file.path, cached.Size) {
+					parsed = parseSessionFileAppend(file.path, cutoff, cached.Parsed, cached.Size)
 				} else {
 					parsed = parseSessionFile(file.path, cutoff)
 				}

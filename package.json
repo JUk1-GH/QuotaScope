@@ -5,11 +5,15 @@
   "private": false,
   "type": "commonjs",
   "scripts": {
+    "build:frontend": "tsc -p tsconfig.json",
     "generate": "go run generate_codex_data.go",
     "build:generator": "go build -trimpath -ldflags \"-s -w\" -o codexscope-generator generate_codex_data.go",
-    "verify": "node verify_responsive.js"
+    "build": "npm run build:frontend && npm run build:generator",
+    "release:local": "bash scripts/build-release.sh",
+    "verify": "npm run build:frontend && node verify_responsive.js"
   },
   "devDependencies": {
-    "playwright": "^1.56.0"
+    "playwright": "^1.56.0",
+    "typescript": "^5.9.3"
   }
 }

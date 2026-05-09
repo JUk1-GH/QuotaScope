@@ -13,6 +13,9 @@ data.js
 .codexscope-cache.json
 codexscope-generator
 codexscope-generator.exe
+codexscope-darwin-arm64
+codexscope-windows-amd64.exe
+dist/
 
 # Local visual audit artifacts.
 *.png

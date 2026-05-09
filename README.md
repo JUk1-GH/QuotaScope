@@ -34,7 +34,7 @@ To view your real local Codex usage, use the launcher for your system:
 - **macOS**: double-click `macos/open-dashboard.command`
 - **Windows**: double-click `windows/open-dashboard.cmd`
 
-The launcher generates `data.js` from your local Codex logs with the Go generator and then opens `index.html`.
+Release zips include a prebuilt generator, so normal users do not need to install Go. The launcher generates `data.js` from your local Codex logs and then opens `index.html`. Source checkouts can still fall back to `go build` when the prebuilt generator is absent.
 Subsequent runs reuse a local `.codexscope-cache.json` file and only rescan changed session logs, so repeated launches should be much faster.
 
 If macOS says it cannot verify `open-dashboard.command`, open **System Settings → Privacy & Security**, find the blocked `open-dashboard.command` message, and click **Open Anyway**. You can also right-click the file and choose **Open**.
@@ -75,12 +75,16 @@ The generator writes `data.js` next to `index.html`. Once that file exists, the 
 
 ## Project Structure
 
-- `index.html`: the static dashboard UI, including charts, filters, rankings, quota display, and cost estimation.
+- `index.html`: the static dashboard shell.
+- `styles.css`: dashboard layout and visual styling.
+- `app.ts`: TypeScript source for charts, filters, rankings, quota display, and cost estimation.
+- `app.js`: compiled browser script loaded by `index.html`.
 - `generate_codex_data.go`: the local data generator. It scans Codex JSONL session logs, extracts usage metadata, and writes `data.js`.
 - `data.sample.js`: bundled demo data used when no local `data.js` exists.
 - `macos/open-dashboard.command`: macOS launcher that runs the generator and opens the dashboard.
 - `windows/open-dashboard.cmd`: Windows launcher that runs the generator and opens the dashboard.
 - `verify_responsive.js`: Playwright-based layout and interaction audit.
+- `scripts/build-release.sh`: builds platform-specific release folders and zip packages.
 - `assets/`: screenshots and static project assets.
 
 ## Data Flow
@@ -113,6 +117,22 @@ The responsive visual audit uses Playwright:
 npm install
 npm run verify
 ```
+
+## Build Release Packages
+
+Release packages include prebuilt generators, so end users do not need Go:
+
+```bash
+npm install
+npm run release:local
+```
+
+This writes:
+
+- `dist/CodexScope-mac.zip` with `codexscope-darwin-arm64` and the macOS launcher
+- `dist/CodexScope-windows.zip` with `codexscope-windows-amd64.exe` and the Windows launcher
+
+The GitHub Actions release workflow builds the same zip files for tags named `v*`.
 
 ## Privacy
 

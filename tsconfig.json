@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "none",
+    "lib": ["DOM", "ES2020"],
+    "strict": false,
+    "skipLibCheck": true,
+    "removeComments": false,
+    "outFile": "app.js"
+  },
+  "files": ["app.ts"]
+}

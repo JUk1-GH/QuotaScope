@@ -3,6 +3,11 @@ setlocal
 
 cd /d "%~dp0.."
 
+if exist "%cd%\codexscope-windows-amd64.exe" (
+  "%cd%\codexscope-windows-amd64.exe"
+  goto open_dashboard
+)
+
 where go >nul 2>nul
 if %errorlevel%==0 (
   go build -trimpath -ldflags "-s -w" -o codexscope-generator.exe generate_codex_data.go
@@ -11,12 +16,8 @@ if %errorlevel%==0 (
   goto open_dashboard
 )
 
-if exist "%cd%\codexscope-generator.exe" (
-  "%cd%\codexscope-generator.exe"
-  goto open_dashboard
-)
-
-echo Go was not found. Please install Go first.
+echo No prebuilt generator was found, and Go is not installed.
+echo Please download CodexScope-windows.zip from the GitHub Releases page.
 pause
 exit /b 1
 
