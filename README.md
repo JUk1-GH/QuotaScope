@@ -83,6 +83,7 @@ The generator writes `data.js` next to `index.html`. Once that file exists, the 
 - `app.js`: compiled browser script loaded by `index.html`.
 - `generate_codex_data.go`: the local data generator. It scans Codex JSONL session logs, extracts usage metadata, and writes `data.js`.
 - `data.sample.js`: bundled demo data used when no local `data.js` exists.
+- `CHANGELOG.md`: release notes for each published version.
 - `macos/open-dashboard.command`: macOS launcher that runs the generator and opens the dashboard.
 - `windows/open-dashboard.cmd`: Windows launcher that runs the generator and opens the dashboard.
 - `verify_responsive.js`: Playwright-based layout and interaction audit.

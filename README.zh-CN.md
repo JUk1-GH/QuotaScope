@@ -85,6 +85,7 @@ go run .\generate_codex_data.go --root "$env:USERPROFILE\.codex\sessions"
 - `app.js`：由 TypeScript 编译出的浏览器脚本，`index.html` 会直接加载它。
 - `generate_codex_data.go`：本地数据生成器，扫描 Codex JSONL 会话日志，提取用量元数据并写入 `data.js`。
 - `data.sample.js`：内置示例数据。没有本地 `data.js` 时，页面会先显示这份数据。
+- `CHANGELOG.md`：每个公开版本的更新记录。
 - `macos/open-dashboard.command`：macOS 启动脚本，负责运行生成器并打开面板。
 - `windows/open-dashboard.cmd`：Windows 启动脚本，负责运行生成器并打开面板。
 - `verify_responsive.js`：基于 Playwright 的响应式布局和交互验证脚本。
