@@ -37,7 +37,9 @@ To view your real local Codex usage, use the launcher for your system:
 The launcher generates `data.js` from your local Codex logs with the Go generator and then opens `index.html`.
 Subsequent runs reuse a local `.codexscope-cache.json` file and only rescan changed session logs, so repeated launches should be much faster.
 
-If macOS says it cannot verify `open-dashboard.command`, right-click the file and choose **Open**. If it still refuses to open, run this once in Terminal from the project folder:
+If macOS says it cannot verify `open-dashboard.command`, open **System Settings → Privacy & Security**, find the blocked `open-dashboard.command` message, and click **Open Anyway**. You can also right-click the file and choose **Open**.
+
+If macOS still refuses to open it, run this once in Terminal from the project folder:
 
 ```bash
 xattr -dr com.apple.quarantine .
