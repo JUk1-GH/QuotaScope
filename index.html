@@ -1211,17 +1211,110 @@
       white-space: nowrap;
     }
 
-    .cost-source span {
+    .cost-help-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .cost-help {
+      appearance: none;
       width: 16px;
       height: 16px;
       display: inline-grid;
       place-items: center;
       border: 1px solid #9fb5d1;
       border-radius: 50%;
+      background: #fff;
       color: #5c7190;
       font-size: 11px;
       font-family: var(--mono);
+      font-weight: 800;
       line-height: 1;
+      cursor: help;
+      padding: 0;
+    }
+
+    .cost-help:hover,
+    .cost-help:focus-visible,
+    .cost-help[aria-expanded="true"] {
+      border-color: var(--blue);
+      color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(30, 111, 239, .12);
+      outline: 0;
+    }
+
+    .cost-popover {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: -2px;
+      z-index: 30;
+      width: min(342px, calc(100vw - 32px));
+      padding: 12px 13px;
+      border: 1px solid #cfe0f5;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .98);
+      box-shadow: 0 18px 42px rgba(37, 73, 124, .18);
+      color: #263b59;
+      font-size: 12px;
+      font-weight: 640;
+      line-height: 1.55;
+      white-space: normal;
+      text-align: left;
+      display: none;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+
+    .cost-popover::before {
+      content: "";
+      position: absolute;
+      top: -6px;
+      right: 12px;
+      width: 10px;
+      height: 10px;
+      border-top: 1px solid #cfe0f5;
+      border-left: 1px solid #cfe0f5;
+      background: #fff;
+      transform: rotate(45deg);
+    }
+
+    .cost-popover b,
+    .cost-popover span,
+    .cost-popover a {
+      display: block;
+    }
+
+    .cost-popover b {
+      color: #0f2342;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .cost-popover span + span {
+      margin-top: 5px;
+    }
+
+    .cost-popover a {
+      margin-top: 8px;
+      color: var(--blue);
+      font-weight: 780;
+      text-decoration: none;
+    }
+
+    .cost-popover a:hover {
+      text-decoration: underline;
+    }
+
+    .cost-help-wrap:hover .cost-popover,
+    .cost-help:focus + .cost-popover,
+    .cost-help[aria-expanded="true"] + .cost-popover {
+      display: block;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
     }
 
     .currency-toggle {
@@ -3512,7 +3605,17 @@
             <div class="panel-title cost-title">
               <h3>费用统计</h3>
               <div class="cost-actions">
-                <span class="cost-source">官方美元价 <span aria-hidden="true">i</span></span>
+                <span class="cost-source">官方美元价
+                  <span class="cost-help-wrap">
+                    <button id="costHelp" class="cost-help" type="button" aria-label="费用估算说明" aria-expanded="false" aria-describedby="costHelpTip">i</button>
+                    <span id="costHelpTip" class="cost-popover" role="tooltip">
+                      <b>费用估算说明</b>
+                      <span>按 OpenAI 官方价格页的标准美元价格估算，输入、缓存输入、输出按每 100 万 token 计价。</span>
+                      <span>这里只读取本地 Codex token 日志，不读取官方账单；ChatGPT/Codex 套餐额度和实际账单以官方页面为准。</span>
+                      <a href="https://openai.com/api/pricing/" target="_blank" rel="noreferrer">打开 OpenAI 价格页</a>
+                    </span>
+                  </span>
+                </span>
                 <div class="currency-toggle" role="group" aria-label="费用币种">
                   <button class="currency-mode active" type="button" data-currency="USD">USD</button>
                   <button class="currency-mode" type="button" data-currency="CNY">CNY</button>
@@ -4463,6 +4566,21 @@
           if (uiState.currency === "CNY" && fxState.status === "fallback") refreshExchangeRate();
         });
       });
+      const costHelp = $("costHelp");
+      if (costHelp) {
+        const closeCostHelp = () => costHelp.setAttribute("aria-expanded", "false");
+        costHelp.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const expanded = costHelp.getAttribute("aria-expanded") === "true";
+          costHelp.setAttribute("aria-expanded", String(!expanded));
+        });
+        document.addEventListener("click", (event) => {
+          if (!event.target.closest(".cost-help-wrap")) closeCostHelp();
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeCostHelp();
+        });
+      }
       applyRange("today");
 
       $("toggleSessions")?.addEventListener("click", () => {
