@@ -1768,7 +1768,8 @@
       background: #fff;
     }
 
-    .dist-mode {
+    .dist-mode,
+    .session-mode {
       appearance: none;
       width: 48px;
       flex: 0 0 48px;
@@ -1782,13 +1783,29 @@
       cursor: pointer;
     }
 
-    .dist-mode:first-child {
+    .dist-mode:first-child,
+    .session-mode:first-child {
       border-left: 0;
     }
 
-    .dist-mode.active {
+    .dist-mode.active,
+    .session-mode.active {
       background: var(--blue);
       color: #fff;
+    }
+
+    .session-title {
+      align-items: center;
+      gap: 12px;
+    }
+
+    .session-title h3 {
+      min-width: 0;
+    }
+
+    .session-toggle {
+      flex: none;
+      margin-left: auto;
     }
 
     .distribution-chart {
@@ -1956,7 +1973,8 @@
         font-size: 12px;
       }
 
-      #distributionPanel .dist-mode {
+      #distributionPanel .dist-mode,
+      #sessionPanel .session-mode {
         padding: 0 8px;
         font-size: 11px;
       }
@@ -3463,7 +3481,13 @@
 
         <section class="lower">
           <article id="sessionPanel" class="panel">
-            <div class="panel-title"><h3>会话排行</h3></div>
+            <div class="panel-title session-title">
+              <h3>会话排行</h3>
+              <div class="dist-toggle session-toggle" role="group" aria-label="会话排行指标">
+                <button class="session-mode" type="button" data-session-mode="requests">调用</button>
+                <button class="session-mode active" type="button" data-session-mode="tokens">Token</button>
+              </div>
+            </div>
             <div id="sessionList" class="rank-list">
               <div class="session-head">
                 <span>会话</span><span>模型</span><span>Token 消耗</span><span>调用数</span><span>状态</span>
@@ -3512,6 +3536,7 @@
       const uiState = {
         sessionsExpanded: false,
         modelsExpanded: false,
+        sessionMode: "tokens",
         distributionMode: "calls",
         currency: "USD",
         trendScale: "linear",
@@ -3824,8 +3849,9 @@
         const cacheHit = totals.input ? totals.cached / totals.input * 100 : 0;
         const failureRate = totals.requests ? failures.length / totals.requests * 100 : 0;
         const successRate = totals.requests ? Math.max(0, (totals.requests - failures.length) / totals.requests * 100) : 100;
-        const sessions = Array.from(bySession.values()).sort((a, b) => b.tokens - a.tokens).slice(0, 20);
+        const sessions = Array.from(bySession.values());
         const maxSessionTokens = Math.max(1, ...sessions.map((row) => row.tokens));
+        const maxSessionRequests = Math.max(1, ...sessions.map((row) => row.requests));
         const models = Array.from(byModel.values()).sort((a, b) => b.tokens - a.tokens).slice(0, 12);
         const maxModelTokens = Math.max(1, ...models.map((row) => row.tokens));
         const costModels = Array.from(byModel.values()).sort((a, b) => b.cost - a.cost).slice(0, 4);
@@ -3868,7 +3894,8 @@
             ...row,
             rank: index + 1,
             tokensLabel: fmt(row.tokens),
-            percent: Math.round(row.tokens / maxSessionTokens * 100),
+            tokenPercent: Math.round(row.tokens / maxSessionTokens * 100),
+            requestPercent: Math.round(row.requests / maxSessionRequests * 100),
           })),
           models: models.map((row) => ({
             name: row.name,
@@ -4117,10 +4144,20 @@
 
       const renderSessions = () => {
         const allRows = sessionRows || [];
-        const rows = uiState.sessionsExpanded ? allRows : allRows.slice(0, 5);
+        const tokenMode = uiState.sessionMode !== "requests";
+        document.querySelectorAll(".session-mode").forEach((button) => {
+          button.classList.toggle("active", button.dataset.sessionMode === uiState.sessionMode);
+        });
+        const rankedRows = [...allRows]
+          .sort((a, b) => {
+            const primary = tokenMode ? b.tokens - a.tokens : b.requests - a.requests;
+            return primary || b.tokens - a.tokens || b.requests - a.requests || String(a.name).localeCompare(String(b.name));
+          })
+          .slice(0, 20);
+        const rows = uiState.sessionsExpanded ? rankedRows : rankedRows.slice(0, 5);
         const head = `
           <div class="session-head">
-            <span>会话</span><span>模型</span><span>Token 消耗</span><span>调用数</span><span>状态</span>
+            <span>会话</span><span>模型</span><span>${tokenMode ? "Token 消耗" : "调用量"}</span><span>${tokenMode ? "调用数" : "Token"}</span><span>状态</span>
           </div>`;
         if (!allRows.length) {
           $("sessionList").innerHTML = head + `<div class="list-empty">当前范围没有会话调用</div>`;
@@ -4132,14 +4169,14 @@
           <div class="session-row">
             <span class="rank-name"><i class="num ${index > 2 ? "muted" : ""}">${index + 1}</i><span class="rank-text">${esc(row.name)}</span></span>
             <span class="pill">${esc(row.model)}</span>
-            <span class="mini-bar"><span style="width:${Math.max(4, row.percent || 0)}%"></span></span>
-            <span>${esc(row.requests)}</span>
+            <span class="mini-bar"><span style="width:${Math.max(4, tokenMode ? row.tokenPercent || 0 : row.requestPercent || 0)}%"></span></span>
+            <span>${tokenMode ? esc(row.requests) : esc(row.tokensLabel)}</span>
             <span class="status"></span>
           </div>`).join("");
         const toggle = $("toggleSessions");
         if (toggle) {
-          toggle.hidden = allRows.length <= 5;
-          toggle.innerHTML = uiState.sessionsExpanded ? "收起会话 <span>↑</span>" : `展开会话 <span>${allRows.length}</span>`;
+          toggle.hidden = rankedRows.length <= 5;
+          toggle.innerHTML = uiState.sessionsExpanded ? "收起会话 <span>↑</span>" : `展开会话 <span>${rankedRows.length}</span>`;
         }
       };
 
@@ -4409,6 +4446,13 @@
         button.addEventListener("click", () => {
           uiState.distributionMode = button.dataset.distMode || "calls";
           renderDistribution();
+        });
+      });
+      document.querySelectorAll(".session-mode").forEach((button) => {
+        button.addEventListener("click", () => {
+          uiState.sessionMode = button.dataset.sessionMode === "requests" ? "requests" : "tokens";
+          uiState.sessionsExpanded = false;
+          renderSessions();
         });
       });
       document.querySelectorAll(".currency-mode").forEach((button) => {
